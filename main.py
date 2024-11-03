@@ -1,0 +1,414 @@
+import openpyxl
+import requests
+from bs4 import BeautifulSoup
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
+from openpyxl.styles.differential import DifferentialStyle
+from openpyxl.formatting.rule import Rule
+import csv
+import json
+import re
+import os
+from tqdm import tqdm
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
+biocoop_champollion_base_url = "https://www.biocoop.fr/magasin-biocoop_champollion/"
+biocoop_base_url = "https://www.biocoop.fr/"
+
+lafourche_tag = 'jsx-2550952359 unit-price'
+lafourche_tag2 = 'jsx-774668517 unit-price'
+biocoop_tag = 'weight-price'
+biocoop_unit_tag = 'price'
+satoriz_tag = 'rqp'
+#greenweez_tag = 'gds-text ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB --bold --xs'
+#greenweez_int_tag = 'gds-title gds-current-price__whole --font-body --md'
+#greenweez_cents_tag = 'gds-title gds-current-price__decimal --font-body --sm'
+greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
+greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
+greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
+
+# Configurer les options du navigateur Chrome
+chrome_options = Options()
+chrome_options.add_argument("--headless")  # Exécuter Chrome en mode headless (sans interface graphique)
+
+prefs = {"profile.managed_default_content_settings.images": 2}
+chrome_options.add_experimental_option("prefs", prefs)
+chrome_options.add_argument(
+    'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3')
+chrome_options.add_argument('--disable-gpu')
+chrome_options.add_argument('--disable-extensions')
+class ProductComparer:
+    def __init__(self, product_name, lafourche_site, biocoop_champollion_site, biocoop_fontaine_site, satoriz_site, greenweez_site):
+        self.product_name = product_name
+        self.lafourche_site = lafourche_site
+        self.biocoop_champollion_site = biocoop_champollion_site.replace(biocoop_base_url,biocoop_champollion_base_url)
+        self.biocoop_fontaine_site = biocoop_fontaine_site.replace(biocoop_base_url,biocoop_fontaine_base_url)
+        self.satoriz_site = satoriz_site
+        self.greenweez_site = greenweez_site
+        # Spécifier le chemin complet vers le chromedriver ici
+        chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
+
+    def get_prices(self):
+        prices = []
+
+        # La Fourche
+        lafourche_price = self._get_price_from_lafourche()
+        prices.append(lafourche_price)
+
+        # Biocoop
+        biocoop_champollion_price = self._get_price_from_site(self.biocoop_champollion_site, biocoop_tag, biocoop_unit_tag)
+        prices.append(biocoop_champollion_price)
+
+        biocoop_fonfaine_price = self._get_price_from_site(self.biocoop_fontaine_site, biocoop_tag, biocoop_unit_tag)
+        prices.append(biocoop_fonfaine_price)
+
+        # Satoriz
+        satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag)
+        prices.append(satoriz_price)
+
+        # greenweez
+        greenweez_price = self._get_price_from_greenweez()
+        prices.append(greenweez_price)
+        return prices
+
+    def _get_price_from_site(self, url, tag, unit_tag=None):
+        if url:
+            quantity = ''
+            if '>' in url:
+                site_data = url.split('>')
+                quantity = site_data[0]
+                url = site_data[1]
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            if quantity == '':
+                price_element = soup.find(class_=tag)
+                quantity = '1'
+            else:
+                price_element = soup.find(class_=unit_tag)
+            price = 888888
+            if price_element is not None:
+                text_price = price_element.text.strip().replace('.', '')
+                text_price = text_price.replace(',', '.')
+                price = round(float(re.sub(r'[^\d.,]', '', text_price))/float(quantity),2) if price_element else 888888
+        else:
+            price = 888888
+        return price
+
+    def _get_price_from_lafourche(self):
+        if self.lafourche_site:
+            try:
+                response = requests.get(self.lafourche_site)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                text_element = soup.find('script', id='__NEXT_DATA__')
+                if text_element:
+                    text = text_element.text.strip()
+                    price = json.loads(text)['props']['pageProps']['product']['meta']['finance']['unit_price']
+                else:
+                    price = 888888
+            except KeyError:
+                print("URL : " + self.lafourche_site)
+                print(self.product_name)
+                price = 888888
+        else:
+            price = 888888
+        return price
+
+    def _get_price_from_greenweez(self):
+        if self.greenweez_site:
+            quantity=''
+            if '>' in self.greenweez_site:
+                site_data = self.greenweez_site.split('>')
+                quantity = site_data[0]
+                url = site_data[1]
+                self.greenweez_site = url
+            else:
+                url=self.greenweez_site
+
+            # Initialiser le navigateur Chrome avec le chemin spécifié
+            driver = webdriver.Chrome(options=chrome_options)
+            # Accéder à l'URL avec le navigateur Chrome
+            driver.get(url)
+
+            # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
+            driver.implicitly_wait(6)
+
+            # Obtenir le contenu de la page après que JavaScript ait pu modifier le DOM
+            page_source = driver.page_source
+
+            # Fermer le navigateur
+            driver.quit()
+
+            if self.product_name == 'Shampoing solide':
+                pause = True
+
+            # Utiliser BeautifulSoup pour extraire les informations nécessaires
+            soup = BeautifulSoup(page_source, 'html.parser')
+            if quantity == '':
+                price_element = soup.find(class_=greenweez_tag)
+                price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
+            else:
+                int_price_element = soup.find(class_=greenweez_int_tag)
+                cent_price_element = soup.find(class_=greenweez_cents_tag)
+                if int_price_element and cent_price_element:
+                     text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip())
+                     price = round(float(text_price)/float(quantity),2)
+                else:
+                    price = 888888
+
+        else:
+            price = 888888
+        return price
+
+def extract_price_from_hyperlink(cell_value):
+    # Extraire le prix de l'hyperlien
+    price = None
+    if isinstance(cell_value, str) and cell_value.startswith('=HYPERLINK("'):
+        end_pos = cell_value.rfind('"')  # Trouver la position du dernier guillemet dans la formule
+        start_pos = cell_value.rfind('"', 0, end_pos - 1) + 1  # Trouver la position du guillemet précédent
+        price = float(cell_value[start_pos:end_pos])
+    return price
+
+def search_product_line(reference_sheet, product_name):
+    # Recherche du nom de produit dans la première colonne de la feuille de référence
+    row_index = None
+    reference_column = reference_sheet['A']  # Première colonne de la feuille de référence
+
+    for cell in reference_column:
+        if cell.value == product_name:
+            # Correspondance trouvée, obtenir le prix de référence
+            row_index = cell.row
+            break  # Sortir de la boucle dès que la correspondance est trouvée
+    return row_index
+
+def set_row_fill(row_index, color_fill):
+    # Recherche du nom de produit dans la première colonne de la feuille de référence
+    col_index = 1
+    while col_index < 12:
+        cell = mois_annee_sheet.cell(row=row_index, column=col_index)
+        cell.fill = color_fill
+        col_index += 1
+
+
+# Liste des produits à partir du fichier CSV
+products_info = []
+with open('C:\\Users\\Lenovo\\Documents\\liste produits.csv', 'r') as csv_file:
+    csv_reader = csv.DictReader(csv_file, delimiter=';')
+    for row in csv_reader:
+        products_info.append({
+            'Catégorie principale': row['Catégorie principale'],
+            'Catégorie': row['Catégorie'],
+            'Sous Catégories': row['Sous Catégories'],
+            'name': row['Produit'],
+            'lafourche_site': row['Site La Fourche'],
+            'biocoop_champollion_site': row['Site Biocoop Champollion'],
+            'biocoop_fontaine_site': row['Site Biocoop Fontaine'],
+            'satoriz_site': row['Site Satoriz'],
+            'greenweez_site': row['Site GreenWeez'],
+            'proportion': float(row['Proportion']) if row['Proportion'] else 0
+        })
+
+# Trier les produits selon les trois niveaux de catégories
+sorted_products_info = sorted(products_info, key=lambda x: (x['Catégorie principale'], x['Catégorie'], x['Sous Catégories']))
+
+# Obtenir le nom du mois et de l'année actuelle
+current_date = datetime.now()
+month_year = current_date.strftime('%B %Y')
+
+# Charger la feuille "Reference 2023" pour obtenir les prix de référence
+reference_workbook = openpyxl.load_workbook('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
+reference_sheet = reference_workbook['Reference 2024']
+
+# Ajouter une nouvelle feuille "Mois année" si elle n'existe pas
+if month_year not in reference_workbook.sheetnames:
+    reference_workbook.create_sheet(month_year)
+
+mois_annee_sheet = reference_workbook[month_year]
+
+# Entêtes du tableau
+mois_annee_sheet.cell(row=1, column=1).value = 'Produit'
+mois_annee_sheet.cell(row=1, column=2).value = 'La Fourche'
+mois_annee_sheet.cell(row=1, column=3).value = 'Évolution La Fourche'
+mois_annee_sheet.cell(row=1, column=4).value = 'Biocoop Champollion'
+mois_annee_sheet.cell(row=1, column=5).value = 'Évolution Biocoop Champollion'
+mois_annee_sheet.cell(row=1, column=6).value = 'Biocoop Fontaine'
+mois_annee_sheet.cell(row=1, column=7).value = 'Évolution Biocoop Fontaine'
+mois_annee_sheet.cell(row=1, column=8).value = 'Satoriz'
+mois_annee_sheet.cell(row=1, column=9).value = 'Évolution Satoriz'
+mois_annee_sheet.cell(row=1, column=10).value = 'GreenWeez'
+mois_annee_sheet.cell(row=1, column=11).value = 'Évolution GreenWeez'
+
+
+# Variables pour le formatage
+category_main_style = Font(bold=True, size=14)
+category_sub_style = Font(bold=True)
+separator_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+category_main_fill = PatternFill(start_color="B7C9E2", end_color="B7C9E2", fill_type="solid")  # Couleur de fond pour les catégories principales
+category_sub_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")  # Couleur de fond pour les sous-catégories
+
+# Initialisation des totaux par site
+total_lafourche = 0
+total_biocoop_champollion = 0
+total_biocoop_fontaine = 0
+total_satoriz = 0
+total_greenweez = 0
+
+# Obtenir les prix pour chaque produit
+current_category_main = None
+current_category_sub = None
+current_row = 2  # Variable pour garder le numéro de ligne actuel
+with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=True) as pbar:
+    for product_info in pbar:
+        product_name = product_info['name']
+        pbar.set_description(f"Traitement - {product_name}")
+        # Vérifier si la catégorie principale a changé
+        if current_category_main != product_info['Catégorie principale']:
+            current_row += 1
+            current_category_main = product_info['Catégorie principale']
+            # Écrire le nom de la catégorie principale avec un style différent
+            main_category_cell = mois_annee_sheet.cell(row=current_row, column=1)
+            main_category_cell.value = current_category_main
+            main_category_cell.font = category_main_style
+            set_row_fill(current_row, category_main_fill)
+            current_row += 1
+
+        # Vérifier si la catégorie a changé
+        if current_category_sub != product_info['Catégorie']:
+            current_category_sub = product_info['Catégorie']
+            # Écrire le nom de la catégorie avec un style différent
+            sub_category_cell = mois_annee_sheet.cell(row=current_row, column=1)
+            sub_category_cell.value = current_category_sub
+            sub_category_cell.font = category_sub_style
+            set_row_fill(current_row, category_sub_fill)
+            # sheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=4)
+            current_row += 1
+
+        # Écrire le nom du produit
+        mois_annee_sheet.cell(row=current_row, column=1).value = product_info['name']
+        current_row += 1
+
+        # Obtenir les prix pour chaque produit
+        product = ProductComparer(
+            product_name=product_info['name'],
+            lafourche_site=product_info['lafourche_site'],
+            biocoop_champollion_site=product_info['biocoop_champollion_site'],
+            biocoop_fontaine_site=product_info['biocoop_fontaine_site'],
+            satoriz_site=product_info['satoriz_site'],
+            greenweez_site=product_info['greenweez_site']
+        )
+        prices = product.get_prices()
+        total_lafourche += prices[0] * product_info['proportion']
+        total_biocoop_champollion += prices[1] * product_info['proportion']
+        total_biocoop_fontaine += prices[2] * product_info['proportion']
+        total_satoriz += prices[3] * product_info['proportion']
+        total_greenweez += prices[4] * product_info['proportion']
+        if product_info['proportion'] != 0:
+            mois_annee_sheet.cell(row=current_row - 1, column=12).value = product_info['proportion']
+        min_price = min(prices)  # Prix minimum dans la liste des prix
+
+        # Écrire les prix pour chaque site
+        for col, price in enumerate(prices, start=1):  # Commencer à partir de la première colonne (colonne 1)
+            price_cell = mois_annee_sheet.cell(row=current_row - 1, column=2*col)
+            price_cell.value = price
+
+            site_url = None
+            if col == 1:  # La Fourche
+                site_url = product_info['lafourche_site']
+            elif col == 2:  # Biocoop champollion
+                site_url = product_info['biocoop_champollion_site'].replace(biocoop_base_url,biocoop_champollion_base_url)
+            elif col == 3:  # Biocoop fontaine
+                site_url = product_info['biocoop_fontaine_site'].replace(biocoop_base_url,biocoop_fontaine_base_url)
+            elif col == 4:  # Satoriz
+                site_url = product_info['satoriz_site']
+            elif col == 5:  # Greenweez
+                site_url = product_info['greenweez_site']
+
+            if site_url:
+                if '>' in site_url:
+                    site_url = site_url.split('>')[1]
+                hyperlink = f'=HYPERLINK("{site_url}","{price}")'
+                price_cell.value = hyperlink
+                price_cell.font = Font(underline="single", color="0563C1")
+
+            if price == min_price:
+                price_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            else:
+                price_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+            # Calcul de l'évolution par rapport à la feuille de référence
+            reference_price = None
+            new_price = 888888
+            reference_column = None
+            row_index = search_product_line(reference_sheet=reference_sheet, product_name=product_info['name'])
+            if row_index is not None:
+                if col == 1:  # Prix La Fourche
+                    reference_price = extract_price_from_hyperlink(
+                        reference_sheet.cell(row=row_index, column=2).value)
+                    reference_column = 3  # Colonne pour l'évolution La Fourche
+                elif col == 2:  # Prix Biocoop Champollion
+                    reference_price = extract_price_from_hyperlink(
+                        reference_sheet.cell(row=row_index, column=4).value)
+                    reference_column = 5  # Colonne pour l'évolution Biocoop Champollion
+                elif col == 3:  # Prix Biocoop Fontaine
+                    reference_price = extract_price_from_hyperlink(
+                        reference_sheet.cell(row=row_index, column=6).value)
+                    reference_column = 7  # Colonne pour l'évolution Biocoop Fontaine
+                elif col == 4:  # Prix Satoriz
+                    reference_price = extract_price_from_hyperlink(
+                        reference_sheet.cell(row=row_index, column=8).value)
+                    reference_column = 9  # Colonne pour l'évolution Satoriz
+                elif col == 5:  # Prix GreenWeez
+                    reference_price = extract_price_from_hyperlink(
+                        reference_sheet.cell(row=row_index, column=10).value)
+                    reference_column = 11  # Colonne pour l'évolution GreenWeez
+                    if price == 888888:
+                        all_sheet = reference_workbook.sheetnames
+                        index = 2
+                        while (index < len(all_sheet) - 1 or new_price == 888888):
+                            previous_sheet = all_sheet[len(all_sheet)-index]
+                            row_index = search_product_line(reference_sheet=previous_sheet,
+                                                            product_name=product_info['name'])
+                            new_price = extract_price_from_hyperlink(
+                            previous_sheet.cell(row=row_index, column=10).value)
+                            index = index + 1
+
+            if reference_price is not None:
+                price_change = ((price - reference_price) / reference_price) * 100
+                evolution_cell = mois_annee_sheet.cell(row=current_row - 1, column=reference_column)
+                evolution_cell.value = f"{price_change:.2f}%"
+
+                if reference_price == 888888:
+                    evolution_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF",
+                                                      fill_type="solid")  # Couleur de fond blanc
+                elif price == 888888:
+                    evolution_cell.value = "-"
+                    evolution_cell.fill = PatternFill(start_color="5E6D6D", end_color="5E6D6D",
+                                                      fill_type="solid")  # Couleur de fond grise
+                    if new_price != 888888:
+                        price_cell.value = new_price
+
+                elif price_change < 0:
+                    evolution_cell.fill = PatternFill(start_color="B7E1CD", end_color="B7E1CD",
+                                                      fill_type="solid")  # Couleur de fond bleue pastel
+                elif price_change > 0:
+                    evolution_cell.fill = PatternFill(start_color="F4CCCC", end_color="F4CCCC",
+                                                      fill_type="solid")  # Couleur de fond rouge pastel
+
+current_row += 1
+# Afficher les résultats à la fin du tableau
+mois_annee_sheet.cell(row=current_row + 1, column=1).value = 'Prix du Panier'
+mois_annee_sheet.cell(row=current_row + 1, column=2).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*B5:B' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=4).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*D5:D' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*F5:F' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*H5:H' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*J5:J' + str(current_row) + ')'
+
+
+# Sauvegarder le classeur Excel
+reference_workbook.save('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
+
+# Ouvrir le fichier Excel après sa génération
+os.startfile('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
