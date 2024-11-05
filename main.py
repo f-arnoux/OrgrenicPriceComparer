@@ -1,167 +1,15 @@
 import openpyxl
-import requests
-from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 import csv
-import json
-import re
 import os
 from tqdm import tqdm
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from ProductComparer import ProductComparer
 
-biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
-biocoop_champollion_base_url = "https://www.biocoop.fr/magasin-biocoop_champollion/"
-biocoop_base_url = "https://www.biocoop.fr/"
-
-lafourche_tag = 'jsx-2550952359 unit-price'
-lafourche_tag2 = 'jsx-774668517 unit-price'
-biocoop_tag = 'weight-price'
-biocoop_unit_tag = 'price'
-satoriz_tag = 'rqp'
-#greenweez_tag = 'gds-text ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB --bold --xs'
-#greenweez_int_tag = 'gds-title gds-current-price__whole --font-body --md'
-#greenweez_cents_tag = 'gds-title gds-current-price__decimal --font-body --sm'
-greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
-greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
-greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
-
-# Configurer les options du navigateur Chrome
-chrome_options = Options()
-chrome_options.add_argument("--headless")  # Exécuter Chrome en mode headless (sans interface graphique)
-
-prefs = {"profile.managed_default_content_settings.images": 2}
-chrome_options.add_experimental_option("prefs", prefs)
-chrome_options.add_argument(
-    'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3')
-chrome_options.add_argument('--disable-gpu')
-chrome_options.add_argument('--disable-extensions')
-class ProductComparer:
-    def __init__(self, product_name, lafourche_site, biocoop_champollion_site, biocoop_fontaine_site, satoriz_site, greenweez_site):
-        self.product_name = product_name
-        self.lafourche_site = lafourche_site
-        self.biocoop_champollion_site = biocoop_champollion_site.replace(biocoop_base_url,biocoop_champollion_base_url)
-        self.biocoop_fontaine_site = biocoop_fontaine_site.replace(biocoop_base_url,biocoop_fontaine_base_url)
-        self.satoriz_site = satoriz_site
-        self.greenweez_site = greenweez_site
-        # Spécifier le chemin complet vers le chromedriver ici
-        chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
-
-    def get_prices(self):
-        prices = []
-
-        # La Fourche
-        lafourche_price = self._get_price_from_lafourche()
-        prices.append(lafourche_price)
-
-        # Biocoop
-        biocoop_champollion_price = self._get_price_from_site(self.biocoop_champollion_site, biocoop_tag, biocoop_unit_tag)
-        prices.append(biocoop_champollion_price)
-
-        biocoop_fonfaine_price = self._get_price_from_site(self.biocoop_fontaine_site, biocoop_tag, biocoop_unit_tag)
-        prices.append(biocoop_fonfaine_price)
-
-        # Satoriz
-        satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag)
-        prices.append(satoriz_price)
-
-        # greenweez
-        greenweez_price = self._get_price_from_greenweez()
-        prices.append(greenweez_price)
-        return prices
-
-    def _get_price_from_site(self, url, tag, unit_tag=None):
-        if url:
-            quantity = ''
-            if '>' in url:
-                site_data = url.split('>')
-                quantity = site_data[0]
-                url = site_data[1]
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            if quantity == '':
-                price_element = soup.find(class_=tag)
-                quantity = '1'
-            else:
-                price_element = soup.find(class_=unit_tag)
-            price = 888888
-            if price_element is not None:
-                text_price = price_element.text.strip().replace('.', '')
-                text_price = text_price.replace(',', '.')
-                price = round(float(re.sub(r'[^\d.,]', '', text_price))/float(quantity),2) if price_element else 888888
-        else:
-            price = 888888
-        return price
-
-    def _get_price_from_lafourche(self):
-        if self.lafourche_site:
-            try:
-                response = requests.get(self.lafourche_site)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                text_element = soup.find('script', id='__NEXT_DATA__')
-                if text_element:
-                    text = text_element.text.strip()
-                    price = json.loads(text)['props']['pageProps']['product']['meta']['finance']['unit_price']
-                else:
-                    price = 888888
-            except KeyError:
-                print("URL : " + self.lafourche_site)
-                print(self.product_name)
-                price = 888888
-        else:
-            price = 888888
-        return price
-
-    def _get_price_from_greenweez(self):
-        if self.greenweez_site:
-            quantity=''
-            if '>' in self.greenweez_site:
-                site_data = self.greenweez_site.split('>')
-                quantity = site_data[0]
-                url = site_data[1]
-                self.greenweez_site = url
-            else:
-                url=self.greenweez_site
-
-            # Initialiser le navigateur Chrome avec le chemin spécifié
-            driver = webdriver.Chrome(options=chrome_options)
-            # Accéder à l'URL avec le navigateur Chrome
-            driver.get(url)
-
-            # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
-            driver.implicitly_wait(6)
-
-            # Obtenir le contenu de la page après que JavaScript ait pu modifier le DOM
-            page_source = driver.page_source
-
-            # Fermer le navigateur
-            driver.quit()
-
-            if self.product_name == 'Shampoing solide':
-                pause = True
-
-            # Utiliser BeautifulSoup pour extraire les informations nécessaires
-            soup = BeautifulSoup(page_source, 'html.parser')
-            if quantity == '':
-                price_element = soup.find(class_=greenweez_tag)
-                price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
-            else:
-                int_price_element = soup.find(class_=greenweez_int_tag)
-                cent_price_element = soup.find(class_=greenweez_cents_tag)
-                if int_price_element and cent_price_element:
-                     text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip())
-                     price = round(float(text_price)/float(quantity),2)
-                else:
-                    price = 888888
-
-        else:
-            price = 888888
-        return price
 
 def extract_price_from_hyperlink(cell_value):
     # Extraire le prix de l'hyperlien
@@ -195,7 +43,7 @@ def set_row_fill(row_index, color_fill):
 
 # Liste des produits à partir du fichier CSV
 products_info = []
-with open('C:\\Users\\Lenovo\\Documents\\liste produits.csv', 'r') as csv_file:
+with open('C:\\Users\\Lenovo\\Documents\\OrgrenicPriceComparer\\liste produits.csv', 'r') as csv_file:
     csv_reader = csv.DictReader(csv_file, delimiter=';')
     for row in csv_reader:
         products_info.append({
@@ -219,7 +67,7 @@ current_date = datetime.now()
 month_year = current_date.strftime('%B %Y')
 
 # Charger la feuille "Reference 2023" pour obtenir les prix de référence
-reference_workbook = openpyxl.load_workbook('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
+reference_workbook = openpyxl.load_workbook('C:\\Users\\Lenovo\\Documents\\OrgrenicPriceComparer\\comparaison_prix.xlsx')
 reference_sheet = reference_workbook['Reference 2024']
 
 # Ajouter une nouvelle feuille "Mois année" si elle n'existe pas
@@ -318,9 +166,9 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             if col == 1:  # La Fourche
                 site_url = product_info['lafourche_site']
             elif col == 2:  # Biocoop champollion
-                site_url = product_info['biocoop_champollion_site'].replace(biocoop_base_url,biocoop_champollion_base_url)
+                site_url = product_info['biocoop_champollion_site'].replace(ProductComparer.biocoop_base_url, ProductComparer.biocoop_champollion_base_url)
             elif col == 3:  # Biocoop fontaine
-                site_url = product_info['biocoop_fontaine_site'].replace(biocoop_base_url,biocoop_fontaine_base_url)
+                site_url = product_info['biocoop_fontaine_site'].replace(ProductComparer.biocoop_base_url, ProductComparer.biocoop_fontaine_base_url)
             elif col == 4:  # Satoriz
                 site_url = product_info['satoriz_site']
             elif col == 5:  # Greenweez
