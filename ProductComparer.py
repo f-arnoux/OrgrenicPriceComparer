@@ -8,9 +8,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from PIL import Image
 import time
+import os
 
 from selenium.webdriver.common.by import By
 
+doScreenCapture = True
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -36,9 +38,6 @@ chrome_options.add_argument('--disable-extensions')
 
 # Spécifier le chemin complet vers le chromedriver ici
 chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
-
-width=1920
-height=820
 
 class ProductComparer:
     biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
@@ -69,6 +68,8 @@ class ProductComparer:
 
         # Satoriz
         satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag)
+        if doScreenCapture:
+            self._capture_screenshot_section(self.satoriz_site, os.getcwd() + '\\Images\\Satoriz_' + self.product_name + '.png', 0, 0, 1920, 820)
         prices.append(satoriz_price)
 
         # greenweez
@@ -143,9 +144,6 @@ class ProductComparer:
             # Fermer le navigateur
             driver.quit()
 
-            if self.product_name == 'Shampoing solide':
-                pause = True
-
             # Utiliser BeautifulSoup pour extraire les informations nécessaires
             soup = BeautifulSoup(page_source, 'html.parser')
             if quantity == '':
@@ -163,3 +161,46 @@ class ProductComparer:
         else:
             price = 888888
         return price
+
+    def _capture_screenshot_section(self, url, save_path, left, top, width, height):
+        # Configurer le service pour le driver
+        service = Service(chromedriver_path)
+
+        # Options pour Chrome
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')  # Ouvrir Chrome en mode sans tête
+
+        driver = webdriver.Chrome(service=service, options=options)
+
+        try:
+            # Ouvrir l'URL
+            driver.get(url)
+            driver.set_window_size(1920, 1080)  # Taille de la fenêtre en pixels
+            time.sleep(2)  # Attendre le chargement de la page
+
+            # Accepter les cookies si le bandeau est présent
+            try:
+                # Remplacer "ID_DU_BOUTON_COOKIES" par l'ID réel ou utiliser un autre sélecteur
+                cookie_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Accepter')]")
+                cookie_button.click()
+                print("Bandeau de cookies accepté.")
+            except:
+                print("Bandeau de cookies non trouvé ou déjà accepté.")
+
+            time.sleep(2)  # Attendre le chargement de la page
+
+            # Prendre une capture d'écran de toute la page
+            full_screenshot_path = "full_screenshot.png"
+            driver.save_screenshot(full_screenshot_path)
+
+            # Charger l'image complète et définir la région
+            full_image = Image.open(full_screenshot_path)
+            box = (left, top, left + width, top + height)
+
+            # Découper la section
+            cropped_image = full_image.crop(box)
+            cropped_image.save(save_path)
+            print(f"Section de la capture d'écran sauvegardée sous : {save_path}")
+
+        finally:
+            driver.quit()

@@ -43,7 +43,7 @@ def set_row_fill(row_index, color_fill):
 
 # Liste des produits à partir du fichier CSV
 products_info = []
-with open('C:\\Users\\Lenovo\\Documents\\OrgrenicPriceComparer\\liste produits.csv', 'r') as csv_file:
+with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
     csv_reader = csv.DictReader(csv_file, delimiter=';')
     for row in csv_reader:
         products_info.append({
@@ -67,7 +67,7 @@ current_date = datetime.now()
 month_year = current_date.strftime('%B %Y')
 
 # Charger la feuille "Reference 2023" pour obtenir les prix de référence
-reference_workbook = openpyxl.load_workbook('C:\\Users\\Lenovo\\Documents\\OrgrenicPriceComparer\\comparaison_prix.xlsx')
+reference_workbook = openpyxl.load_workbook(os.getcwd() + '\\comparaison_prix.xlsx')
 reference_sheet = reference_workbook['Reference 2024']
 
 # Ajouter une nouvelle feuille "Mois année" si elle n'existe pas
