@@ -52,10 +52,15 @@ with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
             'Sous Catégories': row['Sous Catégories'],
             'name': row['Produit'],
             'lafourche_site': row['Site La Fourche'],
+            'lafourche_qtt': row['Quantité La Fourche'],
             'biocoop_champollion_site': row['Site Biocoop Champollion'],
+            'biocoop_champollion_qtt': row['Quantité Biocoop Champollion'],
             'biocoop_fontaine_site': row['Site Biocoop Fontaine'],
+            'biocoop_fontaine_qtt': row['Quantité Biocoop Fontaine'],
             'satoriz_site': row['Site Satoriz'],
+            'satoriz_qtt': row['Quantité Satoriz'],
             'greenweez_site': row['Site GreenWeez'],
+            'greenweez_qtt': row['Quantité GreenWeez'],
             'proportion': float(row['Proportion']) if row['Proportion'] else 0
         })
 
@@ -142,10 +147,15 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         product = ProductComparer(
             product_name=product_info['name'],
             lafourche_site=product_info['lafourche_site'],
+            lafourche_qtt=product_info['lafourche_qtt'],
             biocoop_champollion_site=product_info['biocoop_champollion_site'],
+            biocoop_champollion_qtt=product_info['biocoop_champollion_qtt'],
             biocoop_fontaine_site=product_info['biocoop_fontaine_site'],
+            biocoop_fontaine_qtt=product_info['biocoop_fontaine_qtt'],
             satoriz_site=product_info['satoriz_site'],
-            greenweez_site=product_info['greenweez_site']
+            satoriz_qtt=product_info['satoriz_qtt'],
+            greenweez_site=product_info['greenweez_site'],
+            greenweez_qtt=product_info['greenweez_qtt']
         )
         prices = product.get_prices()
         total_lafourche += prices[0] * product_info['proportion']
@@ -215,7 +225,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                     if price == 888888:
                         all_sheet = reference_workbook.sheetnames
                         index = 2
-                        while (index < len(all_sheet) - 1 or new_price == 888888):
+                        while (index < len(all_sheet) - 1 and new_price == 888888):
                             previous_sheet = all_sheet[len(all_sheet)-index]
                             row_index = search_product_line(reference_sheet=previous_sheet,
                                                             product_name=product_info['name'])

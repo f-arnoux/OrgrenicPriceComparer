@@ -13,6 +13,9 @@ import os
 from selenium.webdriver.common.by import By
 
 doScreenCapture = True
+biocoopChampollionId = 1
+biocoopFontaineId = 2
+satorizId = 3
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -22,8 +25,10 @@ satoriz_tag = 'rqp'
 #greenweez_int_tag = 'gds-title gds-current-price__whole --font-body --md'
 #greenweez_cents_tag = 'gds-title gds-current-price__decimal --font-body --sm'
 greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
-greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
-greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
+#greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
+greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
+#greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
+greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
 
 # Configurer les options du navigateur Chrome
 chrome_options = Options()
@@ -44,13 +49,22 @@ class ProductComparer:
     biocoop_champollion_base_url = "https://www.biocoop.fr/magasin-biocoop_champollion/"
     biocoop_base_url = "https://www.biocoop.fr/"
 
-    def __init__(self, product_name, lafourche_site, biocoop_champollion_site, biocoop_fontaine_site, satoriz_site, greenweez_site):
+    def __init__(self, product_name, lafourche_site, lafourche_qtt,
+                 biocoop_champollion_site, biocoop_champollion_qtt,
+                 biocoop_fontaine_site, biocoop_fontaine_qtt,
+                 satoriz_site, satoriz_qtt,
+                 greenweez_site, greenweez_qtt):
         self.product_name = product_name
         self.lafourche_site = lafourche_site
+        self.lafourche_qtt = lafourche_qtt
         self.biocoop_champollion_site = biocoop_champollion_site.replace(self.biocoop_base_url,self.biocoop_champollion_base_url)
+        self.biocoop_champollion_qtt = biocoop_champollion_qtt
         self.biocoop_fontaine_site = biocoop_fontaine_site.replace(self.biocoop_base_url,self.biocoop_fontaine_base_url)
+        self.biocoop_fontaine_qtt = biocoop_fontaine_qtt
         self.satoriz_site = satoriz_site
+        self.satoriz_qtt = satoriz_qtt
         self.greenweez_site = greenweez_site
+        self.greenweez_qtt = greenweez_qtt
 
     def get_prices(self):
         prices = []
@@ -60,14 +74,14 @@ class ProductComparer:
         prices.append(lafourche_price)
 
         # Biocoop
-        biocoop_champollion_price = self._get_price_from_site(self.biocoop_champollion_site, biocoop_tag, biocoop_unit_tag)
+        biocoop_champollion_price = self._get_price_from_site(self.biocoop_champollion_site, biocoop_tag, biocoop_unit_tag, biocoopChampollionId)
         prices.append(biocoop_champollion_price)
 
-        biocoop_fonfaine_price = self._get_price_from_site(self.biocoop_fontaine_site, biocoop_tag, biocoop_unit_tag)
+        biocoop_fonfaine_price = self._get_price_from_site(self.biocoop_fontaine_site, biocoop_tag, biocoop_unit_tag, biocoopFontaineId)
         prices.append(biocoop_fonfaine_price)
 
         # Satoriz
-        satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag)
+        satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag, satorizId)
         if doScreenCapture:
             self._capture_screenshot_section(self.satoriz_site, os.getcwd() + '\\Images\\Satoriz_' + self.product_name + '.png', 0, 0, 1920, 820)
         prices.append(satoriz_price)
@@ -77,20 +91,26 @@ class ProductComparer:
         prices.append(greenweez_price)
         return prices
 
-    def _get_price_from_site(self, url, tag, unit_tag=None):
+    def _get_price_from_site(self, url, tag, unit_tag=None, site_id = 0):
         if url:
-            quantity = ''
-            if '>' in url:
-                site_data = url.split('>')
-                quantity = site_data[0]
-                url = site_data[1]
+            quantity = '1'
+            if site_id == biocoopChampollionId:
+                quantity = self.biocoop_champollion_qtt
+            if site_id == biocoopFontaineId:
+                quantity = self.biocoop_fontaine_qtt
+            if site_id == satorizId:
+                quantity = self.satoriz_qtt
+
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
-            if quantity == '':
-                price_element = soup.find(class_=tag)
-                quantity = '1'
-            else:
+
+            if 'U' in quantity:
                 price_element = soup.find(class_=unit_tag)
+                quantity = quantity.replace('U','')
+                quantity = quantity.replace(',','.')
+            else:
+                price_element = soup.find(class_=tag)
+
             price = 888888
             if price_element is not None:
                 text_price = price_element.text.strip().replace('.', '')
@@ -121,19 +141,12 @@ class ProductComparer:
 
     def _get_price_from_greenweez(self):
         if self.greenweez_site:
-            quantity=''
-            if '>' in self.greenweez_site:
-                site_data = self.greenweez_site.split('>')
-                quantity = site_data[0]
-                url = site_data[1]
-                self.greenweez_site = url
-            else:
-                url=self.greenweez_site
+            quantity= self.greenweez_qtt
 
             # Initialiser le navigateur Chrome avec le chemin spécifié
             driver = webdriver.Chrome(options=chrome_options)
             # Accéder à l'URL avec le navigateur Chrome
-            driver.get(url)
+            driver.get(self.greenweez_site)
 
             # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
             driver.implicitly_wait(6)
@@ -146,10 +159,9 @@ class ProductComparer:
 
             # Utiliser BeautifulSoup pour extraire les informations nécessaires
             soup = BeautifulSoup(page_source, 'html.parser')
-            if quantity == '':
-                price_element = soup.find(class_=greenweez_tag)
-                price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
-            else:
+            if 'U' in quantity:
+                quantity = quantity.replace('U','')
+                quantity = quantity.replace(',','.')
                 int_price_element = soup.find(class_=greenweez_int_tag)
                 cent_price_element = soup.find(class_=greenweez_cents_tag)
                 if int_price_element and cent_price_element:
@@ -157,6 +169,10 @@ class ProductComparer:
                      price = round(float(text_price)/float(quantity),2)
                 else:
                     price = 888888
+            else:
+                price_element = soup.find(class_=greenweez_tag)
+                price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
+
 
         else:
             price = 888888
