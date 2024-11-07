@@ -113,6 +113,7 @@ total_greenweez = 0
 current_category_main = None
 current_category_sub = None
 current_row = 2  # Variable pour garder le numéro de ligne actuel
+product_list = []
 with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=True) as pbar:
     for product_info in pbar:
         product_name = product_info['name']
@@ -146,6 +147,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         # Obtenir les prix pour chaque produit
         product = ProductComparer(
             product_name=product_info['name'],
+            product_list = product_list,
             lafourche_site=product_info['lafourche_site'],
             lafourche_qtt=product_info['lafourche_qtt'],
             biocoop_champollion_site=product_info['biocoop_champollion_site'],
@@ -158,6 +160,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             greenweez_qtt=product_info['greenweez_qtt']
         )
         prices = product.get_prices()
+        product_list.append(product)
         total_lafourche += prices[0] * product_info['proportion']
         total_biocoop_champollion += prices[1] * product_info['proportion']
         total_biocoop_fontaine += prices[2] * product_info['proportion']

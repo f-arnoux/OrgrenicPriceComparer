@@ -13,9 +13,11 @@ import os
 from selenium.webdriver.common.by import By
 
 doScreenCapture = True
+lafourcheId = 0
 biocoopChampollionId = 1
 biocoopFontaineId = 2
 satorizId = 3
+greenWeezId = 4
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -44,62 +46,88 @@ chrome_options.add_argument('--disable-extensions')
 # Spécifier le chemin complet vers le chromedriver ici
 chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
 
+
+class SiteInformation:
+    def __init__(self, url, qtt):
+        self.url = url
+        self.qtt = qtt
+        self.price = None
+
+
 class ProductComparer:
     biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
     biocoop_champollion_base_url = "https://www.biocoop.fr/magasin-biocoop_champollion/"
     biocoop_base_url = "https://www.biocoop.fr/"
 
-    def __init__(self, product_name, lafourche_site, lafourche_qtt,
+    def __init__(self, product_name, product_list, lafourche_site, lafourche_qtt,
                  biocoop_champollion_site, biocoop_champollion_qtt,
                  biocoop_fontaine_site, biocoop_fontaine_qtt,
                  satoriz_site, satoriz_qtt,
                  greenweez_site, greenweez_qtt):
         self.product_name = product_name
-        self.lafourche_site = lafourche_site
-        self.lafourche_qtt = lafourche_qtt
-        self.biocoop_champollion_site = biocoop_champollion_site.replace(self.biocoop_base_url,self.biocoop_champollion_base_url)
-        self.biocoop_champollion_qtt = biocoop_champollion_qtt
-        self.biocoop_fontaine_site = biocoop_fontaine_site.replace(self.biocoop_base_url,self.biocoop_fontaine_base_url)
-        self.biocoop_fontaine_qtt = biocoop_fontaine_qtt
-        self.satoriz_site = satoriz_site
-        self.satoriz_qtt = satoriz_qtt
-        self.greenweez_site = greenweez_site
-        self.greenweez_qtt = greenweez_qtt
+        self.product_list = product_list
+        self.lafourche = SiteInformation(lafourche_site,lafourche_qtt)
+        self.biocoop_champollion = SiteInformation(
+            biocoop_champollion_site.replace(self.biocoop_base_url,self.biocoop_champollion_base_url)
+            ,biocoop_champollion_qtt)
+        self.biocoop_fontaine = SiteInformation(
+            biocoop_fontaine_site.replace(self.biocoop_base_url,self.biocoop_fontaine_base_url)
+            ,biocoop_fontaine_qtt)
+        self.satoriz = SiteInformation(satoriz_site,satoriz_qtt)
+        self.greenweez = SiteInformation(greenweez_site,greenweez_qtt)
 
     def get_prices(self):
         prices = []
 
+        previousProduct = self._find_url_in_list()
         # La Fourche
-        lafourche_price = self._get_price_from_lafourche()
-        prices.append(lafourche_price)
+        if previousProduct is not None and previousProduct[1].count(lafourcheId) > 0:
+            self.lafourche.price = previousProduct[0].lafourche.price
+        else:
+            self.lafourche.price = self._get_price_from_lafourche()
+        prices.append(self.lafourche.price)
 
         # Biocoop
-        biocoop_champollion_price = self._get_price_from_site(self.biocoop_champollion_site, biocoop_tag, biocoop_unit_tag, biocoopChampollionId)
-        prices.append(biocoop_champollion_price)
+        if previousProduct is not None and previousProduct[1].count(biocoopChampollionId) > 0:
+            self.biocoop_champollion.price = previousProduct[0].biocoop_champollion.price
+        else:
+            self.biocoop_champollion.price = self._get_price_from_site(self.biocoop_champollion.url, biocoop_tag,
+                                                                       biocoop_unit_tag, biocoopChampollionId)
+        prices.append(self.biocoop_champollion.price)
 
-        biocoop_fonfaine_price = self._get_price_from_site(self.biocoop_fontaine_site, biocoop_tag, biocoop_unit_tag, biocoopFontaineId)
-        prices.append(biocoop_fonfaine_price)
+        if previousProduct is not None and previousProduct[1].count(biocoopFontaineId) > 0:
+            self.biocoop_fontaine.price = previousProduct[0].biocoop_fontaine.price
+        else:
+            self.biocoop_fontaine.price = self._get_price_from_site(self.biocoop_fontaine.url, biocoop_tag,
+                                                                    biocoop_unit_tag, biocoopFontaineId)
+        prices.append(self.biocoop_fontaine.price)
 
         # Satoriz
-        satoriz_price = self._get_price_from_site(self.satoriz_site, satoriz_tag, satoriz_tag, satorizId)
-        if doScreenCapture:
-            self._capture_screenshot_section(self.satoriz_site, os.getcwd() + '\\Images\\Satoriz_' + self.product_name + '.png', 0, 0, 1920, 820)
-        prices.append(satoriz_price)
+        if previousProduct is not None and previousProduct[1].count(satorizId) > 0:
+            self.satoriz.price = previousProduct[0].satoriz.price
+        else:
+            self.satoriz.price = self._get_price_from_site(self.satoriz.url, satoriz_tag, satoriz_tag, satorizId)
+        prices.append(self.satoriz.price)
 
         # greenweez
-        greenweez_price = self._get_price_from_greenweez()
-        prices.append(greenweez_price)
+        if previousProduct is not None and previousProduct[1].count(greenWeezId) > 0:
+            self.greenweez.price = previousProduct[0].greenweez.price
+        else:
+            self.greenweez.price = self._get_price_from_greenweez()
+        prices.append(self.greenweez.price)
+
+        self.previousProduct = self
         return prices
 
     def _get_price_from_site(self, url, tag, unit_tag=None, site_id = 0):
         if url:
             quantity = '1'
             if site_id == biocoopChampollionId:
-                quantity = self.biocoop_champollion_qtt
+                quantity = self.biocoop_champollion.qtt
             if site_id == biocoopFontaineId:
-                quantity = self.biocoop_fontaine_qtt
+                quantity = self.biocoop_fontaine.qtt
             if site_id == satorizId:
-                quantity = self.satoriz_qtt
+                quantity = self.satoriz.qtt
 
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -110,6 +138,7 @@ class ProductComparer:
                 quantity = quantity.replace(',','.')
             else:
                 price_element = soup.find(class_=tag)
+                quantity = '1'
 
             price = 888888
             if price_element is not None:
@@ -121,9 +150,9 @@ class ProductComparer:
         return price
 
     def _get_price_from_lafourche(self):
-        if self.lafourche_site:
+        if self.lafourche.url:
             try:
-                response = requests.get(self.lafourche_site)
+                response = requests.get(self.lafourche.url)
                 soup = BeautifulSoup(response.text, 'html.parser')
                 text_element = soup.find('script', id='__NEXT_DATA__')
                 if text_element:
@@ -132,7 +161,7 @@ class ProductComparer:
                 else:
                     price = 888888
             except KeyError:
-                print("URL : " + self.lafourche_site)
+                print("URL : " + self.lafourche.url)
                 print(self.product_name)
                 price = 888888
         else:
@@ -140,13 +169,13 @@ class ProductComparer:
         return price
 
     def _get_price_from_greenweez(self):
-        if self.greenweez_site:
-            quantity= self.greenweez_qtt
+        if self.greenweez.url:
+            quantity= self.greenweez.qtt
 
             # Initialiser le navigateur Chrome avec le chemin spécifié
             driver = webdriver.Chrome(options=chrome_options)
             # Accéder à l'URL avec le navigateur Chrome
-            driver.get(self.greenweez_site)
+            driver.get(self.greenweez.url)
 
             # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
             driver.implicitly_wait(6)
@@ -220,3 +249,30 @@ class ProductComparer:
 
         finally:
             driver.quit()
+
+    def _find_url_in_list(self):
+        list_len = len(self.product_list)
+        i = 1
+        list_id = []
+        while i<3 and list_len >= i:
+            if self.product_list[list_len-i].lafourche.url == self.lafourche.url:
+                list_id.append(lafourcheId)
+            elif self.product_list[list_len-i].biocoop_champollion.url == self.biocoop_champollion.url:
+                list_id.append(biocoopChampollionId)
+            elif self.product_list[list_len-i].biocoop_fontaine.url == self.biocoop_fontaine.url:
+                list_id.append(biocoopFontaineId)
+            elif self.product_list[list_len-i].satoriz.url == self.satoriz.url:
+                list_id.append(satorizId)
+            elif self.product_list[list_len-i].greenweez.url == self.greenweez.url:
+                list_id.append(greenWeezId)
+            if len(list_id) > 0:
+                return (self.product_list[list_len-i], list_id)
+            i= i+1
+        #for product in enumerate(list.reverse):
+        #   if (product.lafourche.url == url
+         #           or product.biocoop_champollion.url == url
+          #          or product.biocoop_fontaine.url == url
+           #         or product.satoriz.url == url
+             #       or product.greenweez.url == url):
+              #  return product
+        return None
