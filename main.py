@@ -10,6 +10,8 @@ from tqdm import tqdm
 from datetime import datetime
 from ProductComparer import ProductComparer
 
+metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%25C3%25A9signation='
+metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
 def extract_price_from_hyperlink(cell_value):
     # Extraire le prix de l'hyperlien
@@ -61,6 +63,8 @@ with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
             'satoriz_qtt': row['Quantité Satoriz'],
             'greenweez_site': row['Site GreenWeez'],
             'greenweez_qtt': row['Quantité GreenWeez'],
+            'elefan_code': row['Code Elefan'],
+            'elefan_qtt': row['Quantité Elefan'],
             'proportion': float(row['Proportion']) if row['Proportion'] else 0
         })
 
@@ -93,6 +97,8 @@ mois_annee_sheet.cell(row=1, column=8).value = 'Satoriz'
 mois_annee_sheet.cell(row=1, column=9).value = 'Évolution Satoriz'
 mois_annee_sheet.cell(row=1, column=10).value = 'GreenWeez'
 mois_annee_sheet.cell(row=1, column=11).value = 'Évolution GreenWeez'
+mois_annee_sheet.cell(row=1, column=12).value = 'Elefan'
+mois_annee_sheet.cell(row=1, column=13).value = 'Évolution Elefan'
 
 
 # Variables pour le formatage
@@ -108,6 +114,7 @@ total_biocoop_champollion = 0
 total_biocoop_fontaine = 0
 total_satoriz = 0
 total_greenweez = 0
+total_elefan = 0
 
 # Obtenir les prix pour chaque produit
 current_category_main = None
@@ -157,7 +164,9 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             satoriz_site=product_info['satoriz_site'],
             satoriz_qtt=product_info['satoriz_qtt'],
             greenweez_site=product_info['greenweez_site'],
-            greenweez_qtt=product_info['greenweez_qtt']
+            greenweez_qtt=product_info['greenweez_qtt'],
+            elefan_site=metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end,
+            elefan_qtt=product_info['elefan_qtt']
         )
         prices = product.get_prices()
         product_list.append(product)
@@ -166,8 +175,9 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         total_biocoop_fontaine += prices[2] * product_info['proportion']
         total_satoriz += prices[3] * product_info['proportion']
         total_greenweez += prices[4] * product_info['proportion']
+        total_elefan += prices[5] * product_info['proportion']
         if product_info['proportion'] != 0:
-            mois_annee_sheet.cell(row=current_row - 1, column=12).value = product_info['proportion']
+            mois_annee_sheet.cell(row=current_row - 1, column=14).value = product_info['proportion']
         min_price = min(prices)  # Prix minimum dans la liste des prix
 
         # Écrire les prix pour chaque site
@@ -186,10 +196,10 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                 site_url = product_info['satoriz_site']
             elif col == 5:  # Greenweez
                 site_url = product_info['greenweez_site']
+            elif col == 6:  # Greenweez
+                metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
 
             if site_url:
-                if '>' in site_url:
-                    site_url = site_url.split('>')[1]
                 hyperlink = f'=HYPERLINK("{site_url}","{price}")'
                 price_cell.value = hyperlink
                 price_cell.font = Font(underline="single", color="0563C1")
@@ -261,11 +271,11 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
 current_row += 1
 # Afficher les résultats à la fin du tableau
 mois_annee_sheet.cell(row=current_row + 1, column=1).value = 'Prix du Panier'
-mois_annee_sheet.cell(row=current_row + 1, column=2).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*B5:B' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=4).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*D5:D' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*F5:F' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*H5:H' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($L5:$L' + str(current_row) + '*J5:J' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=2).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*B5:B' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=4).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*D5:D' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*F5:F' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*H5:H' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*J5:J' + str(current_row) + ')'
 
 
 # Sauvegarder le classeur Excel

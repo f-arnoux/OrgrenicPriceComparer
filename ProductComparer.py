@@ -4,20 +4,23 @@ import requests
 import json
 import re
 from selenium import webdriver
+from selenium.common import TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image
 import time
 import os
 
-from selenium.webdriver.common.by import By
-
-doScreenCapture = True
+doScreenCapture = False
 lafourcheId = 0
 biocoopChampollionId = 1
 biocoopFontaineId = 2
 satorizId = 3
 greenWeezId = 4
+elefanId = 5
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -31,6 +34,8 @@ greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__
 greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
 #greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
 greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
+elefan_tag = 'fullscreen-normal-text fullscreen-night-text emotion-16s53r6 e1h7b1g11'
+elefan_tag2 = 'cellData emotion-1vgqzmj e1h7b1g10'
 
 # Configurer les options du navigateur Chrome
 chrome_options = Options()
@@ -63,7 +68,8 @@ class ProductComparer:
                  biocoop_champollion_site, biocoop_champollion_qtt,
                  biocoop_fontaine_site, biocoop_fontaine_qtt,
                  satoriz_site, satoriz_qtt,
-                 greenweez_site, greenweez_qtt):
+                 greenweez_site, greenweez_qtt,
+                 elefan_site, elefan_qtt):
         self.product_name = product_name
         self.product_list = product_list
         self.lafourche = SiteInformation(lafourche_site,lafourche_qtt)
@@ -75,11 +81,13 @@ class ProductComparer:
             ,biocoop_fontaine_qtt)
         self.satoriz = SiteInformation(satoriz_site,satoriz_qtt)
         self.greenweez = SiteInformation(greenweez_site,greenweez_qtt)
+        self.elefan = SiteInformation(elefan_site,elefan_qtt)
 
     def get_prices(self):
         prices = []
 
         previousProduct = self._find_url_in_list()
+
         # La Fourche
         if previousProduct is not None and previousProduct[1].count(lafourcheId) > 0:
             self.lafourche.price = previousProduct[0].lafourche.price
@@ -115,6 +123,13 @@ class ProductComparer:
         else:
             self.greenweez.price = self._get_price_from_greenweez()
         prices.append(self.greenweez.price)
+
+        # Elefan
+        if previousProduct is not None and previousProduct[1].count(elefanId) > 0:
+            self.elefan.price = previousProduct[0].elefan.price
+        else:
+            self.elefan.price = self._get_prices_from_elefan()
+        prices.append(self.elefan.price)
 
         self.previousProduct = self
         return prices
@@ -207,6 +222,44 @@ class ProductComparer:
             price = 888888
         return price
 
+    def _get_prices_from_elefan(self):
+        if self.elefan.url:
+            # Initialiser le navigateur Chrome avec le chemin spécifié
+            driver = webdriver.Chrome(options=chrome_options)
+            # Accéder à l'URL avec le navigateur Chrome
+            driver.get(self.elefan.url)
+
+            # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
+            # Attendre que l'élément soit disponible
+            try:
+                price_element = WebDriverWait(driver, 30).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, elefan_tag))
+                )
+            except TimeoutException:
+                print("Erreur acquisition prix " + self.product_name + " Elefan")
+                return 888888
+
+            # Obtenir le contenu de la page après que JavaScript ait pu modifier le DOM
+            page_source = driver.page_source
+
+            # Fermer le navigateur
+            driver.quit()
+
+            soup = BeautifulSoup(page_source, 'html.parser')
+
+            self.elefan.qtt = self.elefan.qtt.replace(',', '.')
+
+            price_element = price_element.find(class_ = elefan_tag2)
+            if price_element:
+                text_price = re.sub(r'[^\d.,]', '', price_element.text.strip()).replace(',', '.')
+                price = round(float(text_price) / float(self.elefan.qtt), 2) if price_element else 888888
+            else:
+                price = 888888
+
+        else:
+            price = 888888
+        return price
+
     def _capture_screenshot_section(self, url, save_path, left, top, width, height):
         # Configurer le service pour le driver
         service = Service(chromedriver_path)
@@ -265,6 +318,8 @@ class ProductComparer:
                 list_id.append(satorizId)
             elif self.product_list[list_len-i].greenweez.url == self.greenweez.url:
                 list_id.append(greenWeezId)
+            elif self.product_list[list_len-i].elefan.url == self.elefan.url:
+                list_id.append(elefanId)
             if len(list_id) > 0:
                 return (self.product_list[list_len-i], list_id)
             i= i+1
