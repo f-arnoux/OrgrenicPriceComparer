@@ -12,7 +12,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image
 import time
-import os
 
 doScreenCapture = False
 lafourcheId = 0
@@ -34,8 +33,23 @@ greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__
 greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
 #greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
 greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
-elefan_tag = 'fullscreen-normal-text fullscreen-night-text emotion-16s53r6 e1h7b1g11'
-elefan_tag2 = 'cellData emotion-1vgqzmj e1h7b1g10'
+elefan_url = "https://metabase.lelefan.org/api/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc/dashcard/121/card/99"
+# En-têtes de la requête
+elefan_headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
+    "Accept": "application/json",
+    "Accept-Language": "fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Content-Type": "application/json",
+    "Connection": "keep-alive",
+    "Referer": "https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%C3%A9signation=&fournisseur=&date_d%C3%A9but=&date_fin=",
+    "Cookie": "metabase.DEVICE=11b29c3c-104e-4b77-a101-fc509387a603",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "If-Modified-Since": "Sat, 9 Nov 2024 13:45:35 GMT",
+    "Priority": "u=0"
+}
 
 # Configurer les options du navigateur Chrome
 chrome_options = Options()
@@ -69,7 +83,7 @@ class ProductComparer:
                  biocoop_fontaine_site, biocoop_fontaine_qtt,
                  satoriz_site, satoriz_qtt,
                  greenweez_site, greenweez_qtt,
-                 elefan_site, elefan_qtt):
+                 elefan_code, elefan_qtt):
         self.product_name = product_name
         self.product_list = product_list
         self.lafourche = SiteInformation(lafourche_site,lafourche_qtt)
@@ -81,7 +95,7 @@ class ProductComparer:
             ,biocoop_fontaine_qtt)
         self.satoriz = SiteInformation(satoriz_site,satoriz_qtt)
         self.greenweez = SiteInformation(greenweez_site,greenweez_qtt)
-        self.elefan = SiteInformation(elefan_site,elefan_qtt)
+        self.elefan = SiteInformation(elefan_code,elefan_qtt)
 
     def get_prices(self):
         prices = []
@@ -224,38 +238,37 @@ class ProductComparer:
 
     def _get_prices_from_elefan(self):
         if self.elefan.url:
-            # Initialiser le navigateur Chrome avec le chemin spécifié
-            driver = webdriver.Chrome(options=chrome_options)
-            # Accéder à l'URL avec le navigateur Chrome
-            driver.get(self.elefan.url)
-
-            # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
-            # Attendre que l'élément soit disponible
-            try:
-                price_element = WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, elefan_tag))
-                )
-            except TimeoutException:
-                print("Erreur acquisition prix " + self.product_name + " Elefan")
-                return 888888
-
-            # Obtenir le contenu de la page après que JavaScript ait pu modifier le DOM
-            page_source = driver.page_source
-
-            # Fermer le navigateur
-            driver.quit()
-
-            soup = BeautifulSoup(page_source, 'html.parser')
-
             self.elefan.qtt = self.elefan.qtt.replace(',', '.')
 
-            price_element = price_element.find(class_ = elefan_tag2)
-            if price_element:
-                text_price = re.sub(r'[^\d.,]', '', price_element.text.strip()).replace(',', '.')
-                price = round(float(text_price) / float(self.elefan.qtt), 2) if price_element else 888888
-            else:
-                price = 888888
+            # Paramètres de la requête, en utilisant la variable `designation_value`
+            params = {
+                "parameters": json.dumps([
+                    {"type": "category", "value": None, "id": "77953a43",
+                     "target": ["dimension", ["template-tag", "rayon"]]},
+                    {"type": "category", "value": [self.elefan.url], "id": "81e04e8a",
+                     "target": ["dimension", ["template-tag", "designation"]]},
+                    {"type": "category", "value": None, "id": "b70dcdbf",
+                     "target": ["dimension", ["template-tag", "fournisseur"]]},
+                    {"type": "date/single", "value": None, "id": "46b30242",
+                     "target": ["variable", ["template-tag", "date_debut"]]},
+                    {"type": "date/single", "value": None, "id": "923e6c97",
+                     "target": ["variable", ["template-tag", "date_fin"]]}
+                ])
+            }
 
+            # Envoyer la requête GET
+            response = requests.get(elefan_url, headers=elefan_headers, params=params)
+
+            # Vérifier la réponse
+            if response.status_code == 200 or response.status_code == 202:
+                # Si la réponse est réussie, imprimer les données JSON
+                data = response.json()
+                price = round(data["data"]["rows"][0][2] / float(self.elefan.qtt), 2)
+            else:
+                # En cas d'erreur, afficher le code de statut et le contenu de la réponse
+                print("Erreur :", response.status_code)
+                print(response.text)
+                price = 888888
         else:
             price = 888888
         return price

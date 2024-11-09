@@ -165,7 +165,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             satoriz_qtt=product_info['satoriz_qtt'],
             greenweez_site=product_info['greenweez_site'],
             greenweez_qtt=product_info['greenweez_qtt'],
-            elefan_site=metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end,
+            elefan_code=product_info['elefan_code'],
             elefan_qtt=product_info['elefan_qtt']
         )
         prices = product.get_prices()
