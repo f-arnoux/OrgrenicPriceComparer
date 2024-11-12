@@ -83,7 +83,7 @@ class ProductComparer:
                  biocoop_fontaine_site, biocoop_fontaine_qtt,
                  satoriz_site, satoriz_qtt,
                  greenweez_site, greenweez_qtt,
-                 elefan_code, elefan_qtt):
+                 elefan_code, elefan_qtt, elefan_data):
         self.product_name = product_name
         self.product_list = product_list
         self.lafourche = SiteInformation(lafourche_site,lafourche_qtt)
@@ -96,6 +96,7 @@ class ProductComparer:
         self.satoriz = SiteInformation(satoriz_site,satoriz_qtt)
         self.greenweez = SiteInformation(greenweez_site,greenweez_qtt)
         self.elefan = SiteInformation(elefan_code,elefan_qtt)
+        self.all_elefan_product_data = elefan_data
 
     def get_prices(self):
         prices = []
@@ -238,36 +239,18 @@ class ProductComparer:
 
     def _get_prices_from_elefan(self):
         if self.elefan.url:
-            self.elefan.qtt = self.elefan.qtt.replace(',', '.')
+            # Nom du produit à rechercher
+            designation_cible = "LAIT D AVOINE MARKAL"
+            # Filtre le produit dont la désignation correspond exactement à 'SAVON LAVANDE'
+            produits_filtrés = [produit for produit in self.all_elefan_product_data if
+                                produit["designation"] == self.elefan.url]
 
-            # Paramètres de la requête, en utilisant la variable `designation_value`
-            params = {
-                "parameters": json.dumps([
-                    {"type": "category", "value": None, "id": "77953a43",
-                     "target": ["dimension", ["template-tag", "rayon"]]},
-                    {"type": "category", "value": [self.elefan.url], "id": "81e04e8a",
-                     "target": ["dimension", ["template-tag", "designation"]]},
-                    {"type": "category", "value": None, "id": "b70dcdbf",
-                     "target": ["dimension", ["template-tag", "fournisseur"]]},
-                    {"type": "date/single", "value": None, "id": "46b30242",
-                     "target": ["variable", ["template-tag", "date_debut"]]},
-                    {"type": "date/single", "value": None, "id": "923e6c97",
-                     "target": ["variable", ["template-tag", "date_fin"]]}
-                ])
-            }
-
-            # Envoyer la requête GET
-            response = requests.get(elefan_url, headers=elefan_headers, params=params)
-
-            # Vérifier la réponse
-            if response.status_code == 200 or response.status_code == 202:
-                # Si la réponse est réussie, imprimer les données JSON
-                data = response.json()
-                price = round(data["data"]["rows"][0][2] / float(self.elefan.qtt), 2)
+            # Vérifie si le produit a été trouvé et affiche les informations
+            if produits_filtrés:
+                produit = produits_filtrés[0]  # Comme il y a un seul produit recherché, on prend le premier résultat
+                price = round(produit.get("prix_vente") / float(self.elefan.qtt.replace(',', '.')), 2)
             else:
-                # En cas d'erreur, afficher le code de statut et le contenu de la réponse
-                print("Erreur :", response.status_code)
-                print(response.text)
+                print(f"Aucun produit trouvé avec la désignation '{designation_cible}'")
                 price = 888888
         else:
             price = 888888

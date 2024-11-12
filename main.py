@@ -6,6 +6,7 @@ from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 import csv
 import os
+import requests
 from tqdm import tqdm
 from datetime import datetime
 from ProductComparer import ProductComparer
@@ -116,6 +117,11 @@ total_satoriz = 0
 total_greenweez = 0
 total_elefan = 0
 
+#recuperation des données de l'Elefan
+response = requests.get('https://produits.lelefan.org/api/articles')
+# Parse le JSON
+all_elefan_product_data = response.json()  # Convertit la réponse en objet Python
+
 # Obtenir les prix pour chaque produit
 current_category_main = None
 current_category_sub = None
@@ -166,7 +172,8 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             greenweez_site=product_info['greenweez_site'],
             greenweez_qtt=product_info['greenweez_qtt'],
             elefan_code=product_info['elefan_code'],
-            elefan_qtt=product_info['elefan_qtt']
+            elefan_qtt=product_info['elefan_qtt'],
+            elefan_data = all_elefan_product_data
         )
         prices = product.get_prices()
         product_list.append(product)
@@ -196,7 +203,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                 site_url = product_info['satoriz_site']
             elif col == 5:  # Greenweez
                 site_url = product_info['greenweez_site']
-            elif col == 6:  # Greenweez
+            elif col == 6:  # Elefan
                 metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
 
             if site_url:
