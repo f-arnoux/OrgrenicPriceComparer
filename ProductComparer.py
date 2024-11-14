@@ -33,23 +33,7 @@ greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__
 greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
 #greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
 greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
-elefan_url = "https://metabase.lelefan.org/api/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc/dashcard/121/card/99"
-# En-têtes de la requête
-elefan_headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
-    "Accept": "application/json",
-    "Accept-Language": "fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Content-Type": "application/json",
-    "Connection": "keep-alive",
-    "Referer": "https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%C3%A9signation=&fournisseur=&date_d%C3%A9but=&date_fin=",
-    "Cookie": "metabase.DEVICE=11b29c3c-104e-4b77-a101-fc509387a603",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "If-Modified-Since": "Sat, 9 Nov 2024 13:45:35 GMT",
-    "Priority": "u=0"
-}
+
 
 # Configurer les options du navigateur Chrome
 chrome_options = Options()
@@ -69,7 +53,17 @@ chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chr
 class SiteInformation:
     def __init__(self, url, qtt):
         self.url = url
-        self.qtt = qtt
+        self.isUnitary = False
+        if qtt == 'V':
+            self.qtt = 1
+        elif 'U' in qtt:
+            self.isUnitary = True
+            self.qtt = float(qtt.replace(',','.').replace('U', ''))
+        else:
+            try:
+                self.qtt = float(qtt.replace(',','.'))
+            except:
+                self.qtt = 1
         self.price = None
 
 
@@ -151,30 +145,30 @@ class ProductComparer:
 
     def _get_price_from_site(self, url, tag, unit_tag=None, site_id = 0):
         if url:
-            quantity = '1'
+            quantity = 1
+            product = None
             if site_id == biocoopChampollionId:
-                quantity = self.biocoop_champollion.qtt
+                product = self.biocoop_champollion
             if site_id == biocoopFontaineId:
-                quantity = self.biocoop_fontaine.qtt
+                product = self.biocoop_fontaine
             if site_id == satorizId:
-                quantity = self.satoriz.qtt
-
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            if 'U' in quantity:
-                price_element = soup.find(class_=unit_tag)
-                quantity = quantity.replace('U','')
-                quantity = quantity.replace(',','.')
+                product = self.satoriz
+            if product:
+                quantity = product.qtt
+                response = requests.get(url)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                if product.isUnitary:
+                    price_element = soup.find(class_=unit_tag)
+                else:
+                    price_element = soup.find(class_=tag)
             else:
-                price_element = soup.find(class_=tag)
-                quantity = '1'
+                return 888888
 
             price = 888888
             if price_element is not None:
                 text_price = price_element.text.strip().replace('.', '')
                 text_price = text_price.replace(',', '.')
-                price = round(float(re.sub(r'[^\d.,]', '', text_price))/float(quantity),2) if price_element else 888888
+                price = round(float(re.sub(r'[^\d.,]', '', text_price))/quantity,2) if price_element else 888888
         else:
             price = 888888
         return price
@@ -200,8 +194,6 @@ class ProductComparer:
 
     def _get_price_from_greenweez(self):
         if self.greenweez.url:
-            quantity= self.greenweez.qtt
-
             # Initialiser le navigateur Chrome avec le chemin spécifié
             driver = webdriver.Chrome(options=chrome_options)
             # Accéder à l'URL avec le navigateur Chrome
@@ -218,14 +210,12 @@ class ProductComparer:
 
             # Utiliser BeautifulSoup pour extraire les informations nécessaires
             soup = BeautifulSoup(page_source, 'html.parser')
-            if 'U' in quantity:
-                quantity = quantity.replace('U','')
-                quantity = quantity.replace(',','.')
+            if self.greenweez.isUnitary:
                 int_price_element = soup.find(class_=greenweez_int_tag)
                 cent_price_element = soup.find(class_=greenweez_cents_tag)
                 if int_price_element and cent_price_element:
                      text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip())
-                     price = round(float(text_price)/float(quantity),2)
+                     price = round(float(text_price)/self.greenweez.qtt,2)
                 else:
                     price = 888888
             else:
@@ -248,7 +238,7 @@ class ProductComparer:
             # Vérifie si le produit a été trouvé et affiche les informations
             if produits_filtrés:
                 produit = produits_filtrés[0]  # Comme il y a un seul produit recherché, on prend le premier résultat
-                price = round(produit.get("prix_vente") / float(self.elefan.qtt.replace(',', '.')), 2)
+                price = round(produit.get("prix_vente") / self.elefan.qtt, 2)
             else:
                 print(f"Aucun produit trouvé avec la désignation '{designation_cible}'")
                 price = 888888
