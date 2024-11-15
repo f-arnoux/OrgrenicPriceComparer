@@ -175,43 +175,35 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             elefan_qtt=product_info['elefan_qtt'],
             elefan_data = all_elefan_product_data
         )
-        prices = product.get_prices()
         product_list.append(product)
-        total_lafourche += prices[0] * product_info['proportion']
-        total_biocoop_champollion += prices[1] * product_info['proportion']
-        total_biocoop_fontaine += prices[2] * product_info['proportion']
-        total_satoriz += prices[3] * product_info['proportion']
-        total_greenweez += prices[4] * product_info['proportion']
-        total_elefan += prices[5] * product_info['proportion']
+        total_lafourche += product.data_list[product.lafourcheId].price * product_info['proportion']
+        total_biocoop_champollion += product.data_list[product.biocoopChampollionId].price * product_info['proportion']
+        total_biocoop_fontaine += product.data_list[product.biocoopFontaineId].price * product_info['proportion']
+        total_satoriz += product.data_list[product.satorizId].price * product_info['proportion']
+        total_greenweez += product.data_list[product.greenWeezId].price * product_info['proportion']
+        total_elefan += product.data_list[product.elefanId].price * product_info['proportion']
         if product_info['proportion'] != 0:
             mois_annee_sheet.cell(row=current_row - 1, column=14).value = product_info['proportion']
-        min_price = min(prices)  # Prix minimum dans la liste des prix
+        # Prix minimum dans la liste des prix
+        min_price = min(product.data_list, key=lambda data: data.price)
 
         # Écrire les prix pour chaque site
-        for col, price in enumerate(prices, start=1):  # Commencer à partir de la première colonne (colonne 1)
+        for col, data in enumerate(product.data_list, start=1):  # Commencer à partir de la première colonne (colonne 1)
             price_cell = mois_annee_sheet.cell(row=current_row - 1, column=2*col)
-            price_cell.value = price
+            price_cell.value = data.price
 
             site_url = None
-            if col == 1:  # La Fourche
-                site_url = product_info['lafourche_site']
-            elif col == 2:  # Biocoop champollion
-                site_url = product_info['biocoop_champollion_site'].replace(ProductComparer.biocoop_base_url, ProductComparer.biocoop_champollion_base_url)
-            elif col == 3:  # Biocoop fontaine
-                site_url = product_info['biocoop_fontaine_site'].replace(ProductComparer.biocoop_base_url, ProductComparer.biocoop_fontaine_base_url)
-            elif col == 4:  # Satoriz
-                site_url = product_info['satoriz_site']
-            elif col == 5:  # Greenweez
-                site_url = product_info['greenweez_site']
-            elif col == 6:  # Elefan
-                metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
+            if col == 6:  # Elefan
+                site_url = metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
+            else:
+                site_url = data.url
 
             if site_url:
-                hyperlink = f'=HYPERLINK("{site_url}","{price}")'
+                hyperlink = f'=HYPERLINK("{site_url}","{data.price}")'
                 price_cell.value = hyperlink
                 price_cell.font = Font(underline="single", color="0563C1")
 
-            if price == min_price:
+            if data.price == min_price:
                 price_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
             else:
                 price_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
@@ -242,7 +234,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                     reference_price = extract_price_from_hyperlink(
                         reference_sheet.cell(row=row_index, column=10).value)
                     reference_column = 11  # Colonne pour l'évolution GreenWeez
-                    if price == 888888:
+                    if data.price == 888888:
                         all_sheet = reference_workbook.sheetnames
                         index = 2
                         while (index < len(all_sheet) - 1 and new_price == 888888):
@@ -254,14 +246,14 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                             index = index + 1
 
             if reference_price is not None:
-                price_change = ((price - reference_price) / reference_price) * 100
+                price_change = ((data.price - reference_price) / reference_price) * 100
                 evolution_cell = mois_annee_sheet.cell(row=current_row - 1, column=reference_column)
                 evolution_cell.value = f"{price_change:.2f}%"
 
                 if reference_price == 888888:
                     evolution_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF",
                                                       fill_type="solid")  # Couleur de fond blanc
-                elif price == 888888:
+                elif data.price == 888888:
                     evolution_cell.value = "-"
                     evolution_cell.fill = PatternFill(start_color="5E6D6D", end_color="5E6D6D",
                                                       fill_type="solid")  # Couleur de fond grise

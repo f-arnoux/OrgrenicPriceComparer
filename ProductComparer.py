@@ -80,38 +80,38 @@ class ProductComparer:
                  elefan_code, elefan_qtt, elefan_data):
         self.product_name = product_name
         self.product_list = product_list
-        self.all_elefan_product_data = elefan_data
-        self.product_data = []
+        self.all_elefan_data_list = elefan_data
+        self.data_list = []
 
-        self.product_data.append(SiteInformation(lafourche_site, lafourche_qtt))
-        self.product_data.append(SiteInformation(
+        self.data_list.append(SiteInformation(lafourche_site, lafourche_qtt))
+        self.data_list.append(SiteInformation(
             biocoop_champollion_site.replace(self.biocoop_base_url, self.biocoop_champollion_base_url)
             , biocoop_champollion_qtt))
-        self.product_data.append(SiteInformation(
+        self.data_list.append(SiteInformation(
             biocoop_fontaine_site.replace(self.biocoop_base_url, self.biocoop_fontaine_base_url)
             , biocoop_fontaine_qtt))
-        self.product_data.append(SiteInformation(satoriz_site, satoriz_qtt))
-        self.product_data.append(SiteInformation(greenweez_site, greenweez_qtt))
-        self.product_data.append(SiteInformation(elefan_code, elefan_qtt))
+        self.data_list.append(SiteInformation(satoriz_site, satoriz_qtt))
+        self.data_list.append(SiteInformation(greenweez_site, greenweez_qtt))
+        self.data_list.append(SiteInformation(elefan_code, elefan_qtt))
 
         previousProduct = self._find_url_in_list()
-        for id, product in enumerate(self.product_data, start = 0):
+        for id, product in enumerate(self.data_list, start = 0):
             if previousProduct is not None and previousProduct[1].count(id) > 0:
-                self.product_data[id].price = previousProduct[0].product_data[id].price
+                self.data_list[id].price = previousProduct[0].data_list[id].price
             else:
                 self._get_product_price(id)
 
     def _get_product_price(self, id):
         if id == self.lafourcheId:
-            self.product_data[id].price = self._get_price_from_lafourche()
+            self.data_list[id].price = self._get_price_from_lafourche()
         elif id == self.biocoopChampollionId or id == self.biocoopFontaineId:
-            self.product_data[id].price = self._get_price_from_site(id, biocoop_tag, biocoop_unit_tag)
+            self.data_list[id].price = self._get_price_from_site(id, biocoop_tag, biocoop_unit_tag)
         elif id == self.satorizId:
-            self.product_data[id].price = self._get_price_from_site(id, satoriz_tag, satoriz_tag)
+            self.data_list[id].price = self._get_price_from_site(id, satoriz_tag, satoriz_tag)
         elif id == self.greenWeezId:
-            self.product_data[id].price = self._get_price_from_greenweez()
+            self.data_list[id].price = self._get_price_from_greenweez()
         elif id == self.elefanId:
-            self.product_data[id].price = self._get_prices_from_elefan()
+            self.data_list[id].price = self._get_prices_from_elefan()
 
     def get_prices(self):
         prices = []
@@ -120,51 +120,51 @@ class ProductComparer:
 
         # La Fourche
         if previousProduct is not None and previousProduct[1].count(self.lafourcheId) > 0:
-            self.product_data[self.lafourcheId].price = previousProduct[0].product_data[self.lafourcheId].price
+            self.data_list[self.lafourcheId].price = previousProduct[0].data_list[self.lafourcheId].price
         else:
-            self.product_data[self.lafourcheId].price = self._get_price_from_lafourche()
-        prices.append(self.product_data[self.lafourcheId].price)
+            self.data_list[self.lafourcheId].price = self._get_price_from_lafourche()
+        prices.append(self.data_list[self.lafourcheId].price)
 
         # Biocoop
         if previousProduct is not None and previousProduct[1].count(self.biocoopChampollionId) > 0:
-            self.product_data[self.biocoopChampollionId].price = previousProduct[0].product_data[self.biocoopChampollionId].price
+            self.data_list[self.biocoopChampollionId].price = previousProduct[0].data_list[self.biocoopChampollionId].price
         else:
-            self.product_data[self.biocoopChampollionId].price = self._get_price_from_site(self.biocoopChampollionId, biocoop_tag, biocoop_unit_tag)
-        prices.append(self.product_data[self.biocoopChampollionId].price)
+            self.data_list[self.biocoopChampollionId].price = self._get_price_from_site(self.biocoopChampollionId, biocoop_tag, biocoop_unit_tag)
+        prices.append(self.data_list[self.biocoopChampollionId].price)
 
         if previousProduct is not None and previousProduct[1].count(self.biocoopFontaineId) > 0:
-            self.product_data[self.biocoopFontaineId].price = previousProduct[0].product_data[self.biocoopFontaineId].price
+            self.data_list[self.biocoopFontaineId].price = previousProduct[0].data_list[self.biocoopFontaineId].price
         else:
-            self.product_data[self.biocoopFontaineId].price = self._get_price_from_site(self.biocoopFontaineId, biocoop_tag, biocoop_unit_tag)
-        prices.append(self.product_data[self.biocoopFontaineId].price)
+            self.data_list[self.biocoopFontaineId].price = self._get_price_from_site(self.biocoopFontaineId, biocoop_tag, biocoop_unit_tag)
+        prices.append(self.data_list[self.biocoopFontaineId].price)
 
         # Satoriz
         if previousProduct is not None and previousProduct[1].count(self.satorizId) > 0:
-            self.product_data[self.satorizId].price = previousProduct[0].product_data[self.satorizId].price
+            self.data_list[self.satorizId].price = previousProduct[0].data_list[self.satorizId].price
         else:
-            self.product_data[self.satorizId].price = self._get_price_from_site(self.satorizId, satoriz_tag, satoriz_tag)
-        prices.append(self.product_data[self.satorizId].price)
+            self.data_list[self.satorizId].price = self._get_price_from_site(self.satorizId, satoriz_tag, satoriz_tag)
+        prices.append(self.data_list[self.satorizId].price)
 
         # greenweez
         if previousProduct is not None and previousProduct[1].count(self.greenWeezId) > 0:
-            self.product_data[self.greenWeezId].price = previousProduct[0].product_data[self.greenWeezId].price
+            self.data_list[self.greenWeezId].price = previousProduct[0].data_list[self.greenWeezId].price
         else:
-            self.product_data[self.greenWeezId].price = self._get_price_from_greenweez()
-        prices.append(self.product_data[self.greenWeezId].price)
+            self.data_list[self.greenWeezId].price = self._get_price_from_greenweez()
+        prices.append(self.data_list[self.greenWeezId].price)
 
         # Elefan
         if previousProduct is not None and previousProduct[1].count(self.elefanId) > 0:
-            self.product_data[self.elefanId].price = previousProduct[0].product_data[self.elefanId].price
+            self.data_list[self.elefanId].price = previousProduct[0].data_list[self.elefanId].price
         else:
-            self.product_data[self.elefanId].price = self._get_prices_from_elefan()
-        prices.append(self.product_data[self.elefanId].price)
+            self.data_list[self.elefanId].price = self._get_prices_from_elefan()
+        prices.append(self.data_list[self.elefanId].price)
 
         self.previousProduct = self
         return prices
 
     def _get_price_from_site(self, site_id, tag, unit_tag=None):
         if site_id:
-            product = self.product_data[site_id]
+            product = self.data_list[site_id]
             if product:
                 quantity = product.qtt
                 response = requests.get(product.url)
@@ -186,9 +186,9 @@ class ProductComparer:
         return price
 
     def _get_price_from_lafourche(self):
-        if self.product_data[self.lafourcheId].url:
+        if self.data_list[self.lafourcheId].url:
             try:
-                response = requests.get(self.product_data[self.lafourcheId].url)
+                response = requests.get(self.data_list[self.lafourcheId].url)
                 soup = BeautifulSoup(response.text, 'html.parser')
                 text_element = soup.find('script', id='__NEXT_DATA__')
                 if text_element:
@@ -197,7 +197,7 @@ class ProductComparer:
                 else:
                     price = 888888
             except KeyError:
-                print("URL : " + self.product_data[self.lafourcheId].url)
+                print("URL : " + self.data_list[self.lafourcheId].url)
                 print(self.product_name)
                 price = 888888
         else:
@@ -205,11 +205,11 @@ class ProductComparer:
         return price
 
     def _get_price_from_greenweez(self):
-        if self.product_data[self.greenWeezId].url:
+        if self.data_list[self.greenWeezId].url:
             # Initialiser le navigateur Chrome avec le chemin spécifié
             driver = webdriver.Chrome(options=chrome_options)
             # Accéder à l'URL avec le navigateur Chrome
-            driver.get(self.product_data[self.greenWeezId].url)
+            driver.get(self.data_list[self.greenWeezId].url)
 
             # Attendre quelques secondes pour que la page se charge complètement (vous pouvez ajuster le temps d'attente selon votre besoin)
             driver.implicitly_wait(6)
@@ -222,12 +222,12 @@ class ProductComparer:
 
             # Utiliser BeautifulSoup pour extraire les informations nécessaires
             soup = BeautifulSoup(page_source, 'html.parser')
-            if self.product_data[self.greenWeezId].isUnitary:
+            if self.data_list[self.greenWeezId].isUnitary:
                 int_price_element = soup.find(class_=greenweez_int_tag)
                 cent_price_element = soup.find(class_=greenweez_cents_tag)
                 if int_price_element and cent_price_element:
                      text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip())
-                     price = round(float(text_price)/self.product_data[self.greenWeezId].qtt,2)
+                     price = round(float(text_price)/self.data_list[self.greenWeezId].qtt,2)
                 else:
                     price = 888888
             else:
@@ -240,17 +240,17 @@ class ProductComparer:
         return price
 
     def _get_prices_from_elefan(self):
-        if self.product_data[self.elefanId].url:
+        if self.data_list[self.elefanId].url:
             # Filtre le produit dont la désignation correspond exactement à 'SAVON LAVANDE'
-            produits_filtrés = [produit for produit in self.all_elefan_product_data if
-                                produit["designation"] == self.product_data[self.elefanId].url]
+            produits_filtrés = [produit for produit in self.all_elefan_data_list if
+                                produit["designation"] == self.data_list[self.elefanId].url]
 
             # Vérifie si le produit a été trouvé et affiche les informations
             if produits_filtrés:
                 produit = produits_filtrés[0]  # Comme il y a un seul produit recherché, on prend le premier résultat
-                price = round(produit.get("prix_vente") / self.product_data[self.elefanId].qtt, 2)
+                price = round(produit.get("prix_vente") / self.data_list[self.elefanId].qtt, 2)
             else:
-                print(f"Aucun produit trouvé avec la désignation '{self.product_data[self.elefanId].url}'")
+                print(f"Aucun produit trouvé avec la désignation '{self.data_list[self.elefanId].url}'")
                 price = 888888
         else:
             price = 888888
@@ -304,22 +304,22 @@ class ProductComparer:
         i = 1
         list_id = []
         while i < 3 and list_len >= i:
-            if self.product_list[list_len - i].product_data[self.lafourcheId].url == self.product_data[
+            if self.product_list[list_len - i].data_list[self.lafourcheId].url == self.data_list[
                 self.lafourcheId].url:
                 list_id.append(self.lafourcheId)
-            elif self.product_list[list_len - i].product_data[self.biocoopChampollionId].url == self.product_data[
+            elif self.product_list[list_len - i].data_list[self.biocoopChampollionId].url == self.data_list[
                 self.biocoopChampollionId].url:
                 list_id.append(self.biocoopChampollionId)
-            elif self.product_list[list_len - i].product_data[self.biocoopFontaineId].url == self.product_data[
+            elif self.product_list[list_len - i].data_list[self.biocoopFontaineId].url == self.data_list[
                 self.biocoopFontaineId].url:
                 list_id.append(self.biocoopFontaineId)
-            elif self.product_list[list_len - i].product_data[self.satorizId].url == self.product_data[
+            elif self.product_list[list_len - i].data_list[self.satorizId].url == self.data_list[
                 self.satorizId].url:
                 list_id.append(self.satorizId)
-            elif self.product_list[list_len - i].product_data[self.greenWeezId].url == self.product_data[
+            elif self.product_list[list_len - i].data_list[self.greenWeezId].url == self.data_list[
                 self.greenWeezId].url:
                 list_id.append(self.greenWeezId)
-            elif self.product_list[list_len - i].product_data[self.elefanId].url == self.product_data[
+            elif self.product_list[list_len - i].data_list[self.elefanId].url == self.data_list[
                 self.elefanId].url:
                 list_id.append(self.elefanId)
             if len(list_id) > 0:
