@@ -113,55 +113,6 @@ class ProductComparer:
         elif id == self.elefanId:
             self.data_list[id].price = self._get_prices_from_elefan()
 
-    def get_prices(self):
-        prices = []
-
-        previousProduct = self._find_url_in_list()
-
-        # La Fourche
-        if previousProduct is not None and previousProduct[1].count(self.lafourcheId) > 0:
-            self.data_list[self.lafourcheId].price = previousProduct[0].data_list[self.lafourcheId].price
-        else:
-            self.data_list[self.lafourcheId].price = self._get_price_from_lafourche()
-        prices.append(self.data_list[self.lafourcheId].price)
-
-        # Biocoop
-        if previousProduct is not None and previousProduct[1].count(self.biocoopChampollionId) > 0:
-            self.data_list[self.biocoopChampollionId].price = previousProduct[0].data_list[self.biocoopChampollionId].price
-        else:
-            self.data_list[self.biocoopChampollionId].price = self._get_price_from_site(self.biocoopChampollionId, biocoop_tag, biocoop_unit_tag)
-        prices.append(self.data_list[self.biocoopChampollionId].price)
-
-        if previousProduct is not None and previousProduct[1].count(self.biocoopFontaineId) > 0:
-            self.data_list[self.biocoopFontaineId].price = previousProduct[0].data_list[self.biocoopFontaineId].price
-        else:
-            self.data_list[self.biocoopFontaineId].price = self._get_price_from_site(self.biocoopFontaineId, biocoop_tag, biocoop_unit_tag)
-        prices.append(self.data_list[self.biocoopFontaineId].price)
-
-        # Satoriz
-        if previousProduct is not None and previousProduct[1].count(self.satorizId) > 0:
-            self.data_list[self.satorizId].price = previousProduct[0].data_list[self.satorizId].price
-        else:
-            self.data_list[self.satorizId].price = self._get_price_from_site(self.satorizId, satoriz_tag, satoriz_tag)
-        prices.append(self.data_list[self.satorizId].price)
-
-        # greenweez
-        if previousProduct is not None and previousProduct[1].count(self.greenWeezId) > 0:
-            self.data_list[self.greenWeezId].price = previousProduct[0].data_list[self.greenWeezId].price
-        else:
-            self.data_list[self.greenWeezId].price = self._get_price_from_greenweez()
-        prices.append(self.data_list[self.greenWeezId].price)
-
-        # Elefan
-        if previousProduct is not None and previousProduct[1].count(self.elefanId) > 0:
-            self.data_list[self.elefanId].price = previousProduct[0].data_list[self.elefanId].price
-        else:
-            self.data_list[self.elefanId].price = self._get_prices_from_elefan()
-        prices.append(self.data_list[self.elefanId].price)
-
-        self.previousProduct = self
-        return prices
-
     def _get_price_from_site(self, site_id, tag, unit_tag=None):
         if site_id:
             product = self.data_list[site_id]
