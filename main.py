@@ -14,6 +14,17 @@ from ProductComparer import ProductComparer
 metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%25C3%25A9signation='
 metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
+compareLafourche = True
+compareBiocoopChampollion = True
+compareBiocoopFontaine = True
+compareSatoriz = False
+compareGreenweez = True
+compareElefan = True
+to_do_list = [compareLafourche, compareBiocoopChampollion, compareBiocoopFontaine,
+              compareSatoriz, compareGreenweez, compareElefan]
+
+
+
 def extract_price_from_hyperlink(cell_value):
     # Extraire le prix de l'hyperlien
     price = None
@@ -110,12 +121,7 @@ category_main_fill = PatternFill(start_color="B7C9E2", end_color="B7C9E2", fill_
 category_sub_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")  # Couleur de fond pour les sous-catégories
 
 # Initialisation des totaux par site
-total_lafourche = 0
-total_biocoop_champollion = 0
-total_biocoop_fontaine = 0
-total_satoriz = 0
-total_greenweez = 0
-total_elefan = 0
+total_list = [0,0,0,0,0,0]
 
 #recuperation des données de l'Elefan
 response = requests.get('https://produits.lelefan.org/api/articles')
@@ -159,113 +165,100 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
 
         # Obtenir les prix pour chaque produit
         product = ProductComparer(
-            product_name=product_info['name'],
-            product_list = product_list,
-            lafourche_site=product_info['lafourche_site'],
-            lafourche_qtt=product_info['lafourche_qtt'],
-            biocoop_champollion_site=product_info['biocoop_champollion_site'],
-            biocoop_champollion_qtt=product_info['biocoop_champollion_qtt'],
-            biocoop_fontaine_site=product_info['biocoop_fontaine_site'],
-            biocoop_fontaine_qtt=product_info['biocoop_fontaine_qtt'],
-            satoriz_site=product_info['satoriz_site'],
-            satoriz_qtt=product_info['satoriz_qtt'],
-            greenweez_site=product_info['greenweez_site'],
-            greenweez_qtt=product_info['greenweez_qtt'],
-            elefan_code=product_info['elefan_code'],
-            elefan_qtt=product_info['elefan_qtt'],
-            elefan_data = all_elefan_product_data
+            product_info=product_info,
+            product_list=product_list,
+            elefan_data=all_elefan_product_data,
+            to_do_list=to_do_list
         )
+
         product_list.append(product)
-        total_lafourche += product.data_list[product.lafourcheId].price * product_info['proportion']
-        total_biocoop_champollion += product.data_list[product.biocoopChampollionId].price * product_info['proportion']
-        total_biocoop_fontaine += product.data_list[product.biocoopFontaineId].price * product_info['proportion']
-        total_satoriz += product.data_list[product.satorizId].price * product_info['proportion']
-        total_greenweez += product.data_list[product.greenWeezId].price * product_info['proportion']
-        total_elefan += product.data_list[product.elefanId].price * product_info['proportion']
         if product_info['proportion'] != 0:
             mois_annee_sheet.cell(row=current_row - 1, column=14).value = product_info['proportion']
         # Prix minimum dans la liste des prix
         min_price = min(product.data_list, key=lambda data: data.price)
 
         # Écrire les prix pour chaque site
-        for col, data in enumerate(product.data_list, start=1):  # Commencer à partir de la première colonne (colonne 1)
-            price_cell = mois_annee_sheet.cell(row=current_row - 1, column=2*col)
-            price_cell.value = data.price
+        for id, data in enumerate(product.data_list, start=0):
+            if to_do_list[id]:
+                total_list[id] += data.price * product_info['proportion']
+                col = id + 1  # Commencer à partir de la première colonne (colonne 1)
+                price_cell = mois_annee_sheet.cell(row=current_row - 1, column=2*col)
+                price_cell.value = data.price
 
-            site_url = None
-            if col == 6:  # Elefan
-                site_url = metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
-            else:
-                site_url = data.url
+                site_url = None
+                if col == 6:  # Elefan
+                    site_url = metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
+                else:
+                    site_url = data.url
 
-            if site_url:
-                hyperlink = f'=HYPERLINK("{site_url}","{data.price}")'
-                price_cell.value = hyperlink
-                price_cell.font = Font(underline="single", color="0563C1")
+                if site_url:
+                    hyperlink = f'=HYPERLINK("{site_url}","{data.price}")'
+                    price_cell.value = hyperlink
+                    price_cell.font = Font(underline="single", color="0563C1")
 
-            if data.price == min_price:
-                price_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-            else:
-                price_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                if data.price == min_price:
+                    price_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+                else:
+                    price_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
-            # Calcul de l'évolution par rapport à la feuille de référence
-            reference_price = None
-            new_price = 888888
-            reference_column = None
-            row_index = search_product_line(reference_sheet=reference_sheet, product_name=product_info['name'])
-            if row_index is not None:
-                if col == 1:  # Prix La Fourche
-                    reference_price = extract_price_from_hyperlink(
-                        reference_sheet.cell(row=row_index, column=2).value)
-                    reference_column = 3  # Colonne pour l'évolution La Fourche
-                elif col == 2:  # Prix Biocoop Champollion
-                    reference_price = extract_price_from_hyperlink(
-                        reference_sheet.cell(row=row_index, column=4).value)
-                    reference_column = 5  # Colonne pour l'évolution Biocoop Champollion
-                elif col == 3:  # Prix Biocoop Fontaine
-                    reference_price = extract_price_from_hyperlink(
-                        reference_sheet.cell(row=row_index, column=6).value)
-                    reference_column = 7  # Colonne pour l'évolution Biocoop Fontaine
-                elif col == 4:  # Prix Satoriz
-                    reference_price = extract_price_from_hyperlink(
-                        reference_sheet.cell(row=row_index, column=8).value)
-                    reference_column = 9  # Colonne pour l'évolution Satoriz
-                elif col == 5:  # Prix GreenWeez
-                    reference_price = extract_price_from_hyperlink(
-                        reference_sheet.cell(row=row_index, column=10).value)
-                    reference_column = 11  # Colonne pour l'évolution GreenWeez
-                    if data.price == 888888:
-                        all_sheet = reference_workbook.sheetnames
-                        index = 2
-                        while (index < len(all_sheet) - 1 and new_price == 888888):
-                            previous_sheet = all_sheet[len(all_sheet)-index]
-                            row_index = search_product_line(reference_sheet=previous_sheet,
-                                                            product_name=product_info['name'])
-                            new_price = extract_price_from_hyperlink(
-                            previous_sheet.cell(row=row_index, column=10).value)
-                            index = index + 1
+                # Calcul de l'évolution par rapport à la feuille de référence
+                reference_price = None
+                new_price = 888888
+                reference_column = None
+                row_index = search_product_line(reference_sheet=reference_sheet, product_name=product_info['name'])
+                if row_index is not None:
+                    if col == 1:  # Prix La Fourche
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=2).value)
+                        reference_column = 3  # Colonne pour l'évolution La Fourche
+                    elif col == 2:  # Prix Biocoop Champollion
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=4).value)
+                        reference_column = 5  # Colonne pour l'évolution Biocoop Champollion
+                    elif col == 3:  # Prix Biocoop Fontaine
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=6).value)
+                        reference_column = 7  # Colonne pour l'évolution Biocoop Fontaine
+                    elif col == 4:  # Prix Satoriz
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=8).value)
+                        reference_column = 9  # Colonne pour l'évolution Satoriz
+                    elif col == 5:  # Prix GreenWeez
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=10).value)
+                        reference_column = 11  # Colonne pour l'évolution GreenWeez
+                        if data.price == 888888:
+                            all_sheet = reference_workbook.sheetnames
+                            index = 2
+                            while (index < len(all_sheet) - 1 and new_price == 888888):
+                                previous_sheet = all_sheet[len(all_sheet)-index]
+                                row_index = search_product_line(reference_sheet=previous_sheet,
+                                                                product_name=product_info['name'])
+                                new_price = extract_price_from_hyperlink(
+                                previous_sheet.cell(row=row_index, column=10).value)
+                                index = index + 1
 
-            if reference_price is not None:
-                price_change = ((data.price - reference_price) / reference_price) * 100
-                evolution_cell = mois_annee_sheet.cell(row=current_row - 1, column=reference_column)
-                evolution_cell.value = f"{price_change:.2f}%"
+                if reference_price is not None:
+                    price_change = ((data.price - reference_price) / reference_price) * 100
+                    evolution_cell = mois_annee_sheet.cell(row=current_row - 1, column=reference_column)
+                    evolution_cell.value = f"{price_change:.2f}%"
 
-                if reference_price == 888888:
-                    evolution_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF",
-                                                      fill_type="solid")  # Couleur de fond blanc
-                elif data.price == 888888:
-                    evolution_cell.value = "-"
-                    evolution_cell.fill = PatternFill(start_color="5E6D6D", end_color="5E6D6D",
-                                                      fill_type="solid")  # Couleur de fond grise
-                    if new_price != 888888:
-                        price_cell.value = new_price
+                    if reference_price == 888888:
+                        evolution_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF",
+                                                          fill_type="solid")  # Couleur de fond blanc
+                    elif data.price == 888888:
+                        evolution_cell.value = "-"
+                        evolution_cell.fill = PatternFill(start_color="5E6D6D", end_color="5E6D6D",
+                                                          fill_type="solid")  # Couleur de fond grise
+                        if new_price != 888888:
+                            price_cell.value = new_price
 
-                elif price_change < 0:
-                    evolution_cell.fill = PatternFill(start_color="B7E1CD", end_color="B7E1CD",
-                                                      fill_type="solid")  # Couleur de fond bleue pastel
-                elif price_change > 0:
-                    evolution_cell.fill = PatternFill(start_color="F4CCCC", end_color="F4CCCC",
-                                                      fill_type="solid")  # Couleur de fond rouge pastel
+                    elif price_change < 0:
+                        evolution_cell.fill = PatternFill(start_color="B7E1CD", end_color="B7E1CD",
+                                                          fill_type="solid")  # Couleur de fond bleue pastel
+                    elif price_change > 0:
+                        evolution_cell.fill = PatternFill(start_color="F4CCCC", end_color="F4CCCC",
+                                                          fill_type="solid")  # Couleur de fond rouge pastel
 
 current_row += 1
 # Afficher les résultats à la fin du tableau

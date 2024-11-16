@@ -58,7 +58,7 @@ class SiteInformation:
                 self.qtt = float(qtt.replace(',','.'))
             except:
                 self.qtt = 1
-        self.price = None
+        self.price = 888888
 
 
 class ProductComparer:
@@ -72,34 +72,30 @@ class ProductComparer:
     greenWeezId = 4
     elefanId = 5
 
-    def __init__(self, product_name, product_list, lafourche_site, lafourche_qtt,
-                 biocoop_champollion_site, biocoop_champollion_qtt,
-                 biocoop_fontaine_site, biocoop_fontaine_qtt,
-                 satoriz_site, satoriz_qtt,
-                 greenweez_site, greenweez_qtt,
-                 elefan_code, elefan_qtt, elefan_data):
-        self.product_name = product_name
+    def __init__(self, product_info, product_list, elefan_data, to_do_list=None):
+        self.product_name = product_info['name']
         self.product_list = product_list
         self.all_elefan_data_list = elefan_data
         self.data_list = []
 
-        self.data_list.append(SiteInformation(lafourche_site, lafourche_qtt))
+        self.data_list.append(SiteInformation(product_info['lafourche_site'], product_info['lafourche_qtt']))
         self.data_list.append(SiteInformation(
-            biocoop_champollion_site.replace(self.biocoop_base_url, self.biocoop_champollion_base_url)
-            , biocoop_champollion_qtt))
+            product_info['biocoop_champollion_site'].replace(self.biocoop_base_url, self.biocoop_champollion_base_url)
+            , product_info['biocoop_champollion_qtt']))
         self.data_list.append(SiteInformation(
-            biocoop_fontaine_site.replace(self.biocoop_base_url, self.biocoop_fontaine_base_url)
-            , biocoop_fontaine_qtt))
-        self.data_list.append(SiteInformation(satoriz_site, satoriz_qtt))
-        self.data_list.append(SiteInformation(greenweez_site, greenweez_qtt))
-        self.data_list.append(SiteInformation(elefan_code, elefan_qtt))
+            product_info['biocoop_fontaine_site'].replace(self.biocoop_base_url, self.biocoop_fontaine_base_url)
+            , product_info['biocoop_fontaine_qtt']))
+        self.data_list.append(SiteInformation(product_info['satoriz_site'], product_info['satoriz_qtt']))
+        self.data_list.append(SiteInformation(product_info['greenweez_site'], product_info['greenweez_qtt']))
+        self.data_list.append(SiteInformation(product_info['elefan_code'], product_info['elefan_qtt']))
 
         previousProduct = self._find_url_in_list()
         for id, product in enumerate(self.data_list, start = 0):
-            if previousProduct is not None and previousProduct[1].count(id) > 0:
-                self.data_list[id].price = previousProduct[0].data_list[id].price
-            else:
-                self._get_product_price(id)
+            if to_do_list[id]:
+                if previousProduct is not None and previousProduct[1].count(id) > 0:
+                    self.data_list[id].price = previousProduct[0].data_list[id].price
+                else:
+                    self._get_product_price(id)
 
     def _get_product_price(self, id):
         if id == self.lafourcheId:
