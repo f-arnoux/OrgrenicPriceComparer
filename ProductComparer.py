@@ -1,3 +1,6 @@
+import csv
+import os
+
 from bs4 import BeautifulSoup
 
 import requests
@@ -14,6 +17,7 @@ from PIL import Image
 import time
 
 doScreenCapture = False
+colectSKU = True
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -141,6 +145,11 @@ class ProductComparer:
                 if text_element:
                     text = text_element.text.strip()
                     price = json.loads(text)['props']['pageProps']['product']['meta']['finance']['unit_price']
+                    if colectSKU:
+                        sku = json.loads(text)['props']['pageProps']['product']['sku']
+                        barcode = json.loads(text)['props']['pageProps']['product']['barcode']
+                        name = json.loads(text)['props']['pageProps']['product']['handle']
+                        self._write_data_in_csv(name, barcode, sku)
                 else:
                     price = 888888
             except KeyError:
@@ -202,6 +211,21 @@ class ProductComparer:
         else:
             price = 888888
         return price
+
+    def _write_data_in_csv(self, name, barcode, sku):
+        la_fourche_csv_file_path = os.getcwd() + '\\lafouche_data.csv'
+        file_exists = os.path.exists(la_fourche_csv_file_path)
+
+        # Ouvre le fichier en mode ajout
+        with open(la_fourche_csv_file_path, mode="a", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+
+            # Si le fichier n'existe pas encore, écrire les en-têtes
+            if not file_exists:
+                writer.writerow(["Name", "Barcode", "SKU"])
+
+            # Écrire les données dans une nouvelle ligne
+            writer.writerow([name, barcode, sku])
 
     def _capture_screenshot_section(self, url, save_path, left, top, width, height):
         # Configurer le service pour le driver

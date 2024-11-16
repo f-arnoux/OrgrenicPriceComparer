@@ -15,8 +15,8 @@ metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-
 metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
 compareLafourche = True
-compareBiocoopChampollion = True
-compareBiocoopFontaine = True
+compareBiocoopChampollion = False
+compareBiocoopFontaine = False
 compareSatoriz = False
 compareGreenweez = True
 compareElefan = True
