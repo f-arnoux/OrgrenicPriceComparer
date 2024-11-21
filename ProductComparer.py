@@ -88,7 +88,10 @@ class ProductComparer:
     elefanId = 5
 
     def __init__(self, product_info, product_list, elefan_data, to_do_list=None):
-        self.product_name = product_info['name']
+        if product_info['type'] == 'Prix bas':
+            self.product_name = product_info['name']
+        else:
+            self.product_name = product_info['name'] + ' - ' + product_info['type']
         self.product_list = product_list
         self.all_elefan_data_list = elefan_data
         self.data_list = []

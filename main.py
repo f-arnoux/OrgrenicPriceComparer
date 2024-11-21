@@ -64,6 +64,7 @@ with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
             'Catégorie principale': row['Catégorie principale'],
             'Catégorie': row['Catégorie'],
             'Sous Catégories': row['Sous Catégories'],
+            'type': row['Type'],
             'name': row['Produit'],
             'lafourche_site': row['Site La Fourche'],
             'lafourche_qtt': row['Quantité La Fourche'],
@@ -159,21 +160,20 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             # sheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=4)
             current_row += 1
 
-        # Écrire le nom du produit
-        mois_annee_sheet.cell(row=current_row, column=1).value = product_info['name']
-        current_row += 1
-
         # Obtenir les prix pour chaque produit
         product = ProductComparer(
-            product_info=product_info,
-            product_list=product_list,
-            elefan_data=all_elefan_product_data,
-            to_do_list=to_do_list
+                product_info=product_info,
+                product_list=product_list,
+                elefan_data=all_elefan_product_data,
+                to_do_list=to_do_list
         )
+
+        # Écrire le nom du produit
+        mois_annee_sheet.cell(row=current_row, column=1).value = product.product_name
 
         product_list.append(product)
         if product_info['proportion'] != 0:
-            mois_annee_sheet.cell(row=current_row - 1, column=14).value = product_info['proportion']
+            mois_annee_sheet.cell(row=current_row, column=14).value = product_info['proportion']
         # Prix minimum dans la liste des prix
         min_data = min(product.data_list, key=lambda data: data.price)
 
@@ -182,7 +182,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             if to_do_list[id]:
                 total_list[id] += data.price * product_info['proportion']
                 col = id + 1  # Commencer à partir de la première colonne (colonne 1)
-                price_cell = mois_annee_sheet.cell(row=current_row - 1, column=2*col)
+                price_cell = mois_annee_sheet.cell(row=current_row, column=2*col)
                 price_cell.value = data.price
 
                 site_url = None
@@ -240,7 +240,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
 
                 if reference_price is not None:
                     price_change = ((data.price - reference_price) / reference_price) * 100
-                    evolution_cell = mois_annee_sheet.cell(row=current_row - 1, column=reference_column)
+                    evolution_cell = mois_annee_sheet.cell(row=current_row, column=reference_column)
                     evolution_cell.value = f"{price_change:.2f}%"
 
                     if reference_price == 888888:
@@ -259,6 +259,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                     elif price_change > 0:
                         evolution_cell.fill = PatternFill(start_color="F4CCCC", end_color="F4CCCC",
                                                           fill_type="solid")  # Couleur de fond rouge pastel
+        current_row += 1
 
 current_row += 1
 # Afficher les résultats à la fin du tableau
