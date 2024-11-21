@@ -46,7 +46,7 @@ chrome_options.add_argument('--disable-extensions')
 
 # Spécifier le chemin complet vers le chromedriver ici
 chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
-
+off_search_api = 'https://world.openfoodfacts.org/api/v2/search?code='
 
 class SiteInformation:
     def __init__(self, url, qtt):
@@ -64,6 +64,15 @@ class SiteInformation:
                 self.qtt = 1
         self.price = 888888
 
+    def get_qtt_from_ean(self, ean):
+        response = requests.get(off_search_api + str(ean))
+        off_data = response.json()
+        try:
+            off_qtt = off_data['products'][0]['product_quantity']
+            off_qtt_type = off_data['products'][0]['product_quantity_unit']
+            print('qtt ' + self.url + ': ' + str(off_qtt) + off_qtt_type)
+        except:
+            print('Pas de qtt pour ' + self.url)
 
 class ProductComparer:
     biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
