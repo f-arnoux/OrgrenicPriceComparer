@@ -17,7 +17,7 @@ from PIL import Image
 import time
 
 doScreenCapture = False
-colectSKU = True
+colectSKU = False
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -28,9 +28,11 @@ satoriz_tag = 'rqp'
 #greenweez_cents_tag = 'gds-title gds-current-price__decimal --font-body --sm'
 greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
 #greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
-greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
+#greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
+greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-5xl'
 #greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
-greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
+#greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
+greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-4xl'
 
 
 # Configurer les options du navigateur Chrome
@@ -125,13 +127,14 @@ class ProductComparer:
     def _get_price_from_site(self, site_id, tag, unit_tag=None):
         if site_id:
             product = self.data_list[site_id]
-            if product:
-                quantity = product.qtt
+            if product and product.url:
                 response = requests.get(product.url)
                 soup = BeautifulSoup(response.text, 'html.parser')
                 if product.isUnitary:
+                    quantity = product.qtt
                     price_element = soup.find(class_=unit_tag)
                 else:
+                    quantity = 1
                     price_element = soup.find(class_=tag)
             else:
                 return 888888
@@ -158,7 +161,7 @@ class ProductComparer:
                         sku = json.loads(text)['props']['pageProps']['product']['sku']
                         barcode = json.loads(text)['props']['pageProps']['product']['barcode']
                         name = json.loads(text)['props']['pageProps']['product']['handle']
-                        self._write_data_in_csv(name, barcode, sku)
+                        self._write_data_in_csv(os.getcwd() + '\\lafouche_data.csv', name, barcode, sku)
                 else:
                     price = 888888
             except KeyError:
@@ -212,8 +215,11 @@ class ProductComparer:
 
             # Vérifie si le produit a été trouvé et affiche les informations
             if produits_filtrés:
-                produit = produits_filtrés[0]  # Comme il y a un seul produit recherché, on prend le premier résultat
+                produit = produits_filtrés[0]
                 price = round(produit.get("prix_vente") / self.data_list[self.elefanId].qtt, 2)
+                #self.data_list[self.elefanId].get_qtt_from_ean(produit["code"])
+                if produit.get("status") != 'ACTIF':
+                    print('Le produit ' + produit["designation"] + ' est ' + produit["status"])
             else:
                 print(f"Aucun produit trouvé avec la désignation '{self.data_list[self.elefanId].url}'")
                 price = 888888
@@ -221,12 +227,11 @@ class ProductComparer:
             price = 888888
         return price
 
-    def _write_data_in_csv(self, name, barcode, sku):
-        la_fourche_csv_file_path = os.getcwd() + '\\lafouche_data.csv'
-        file_exists = os.path.exists(la_fourche_csv_file_path)
+    def _write_data_in_csv(self, path, name, barcode, sku):
+        file_exists = os.path.exists(path)
 
         # Ouvre le fichier en mode ajout
-        with open(la_fourche_csv_file_path, mode="a", newline="", encoding="utf-8") as file:
+        with open(path, mode="a", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
 
             # Si le fichier n'existe pas encore, écrire les en-têtes

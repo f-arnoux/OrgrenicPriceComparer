@@ -49,7 +49,7 @@ def search_product_line(reference_sheet, product_name):
 def set_row_fill(row_index, color_fill):
     # Recherche du nom de produit dans la première colonne de la feuille de référence
     col_index = 1
-    while col_index < 12:
+    while col_index < 14:
         cell = mois_annee_sheet.cell(row=row_index, column=col_index)
         cell.fill = color_fill
         col_index += 1
@@ -175,7 +175,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         if product_info['proportion'] != 0:
             mois_annee_sheet.cell(row=current_row - 1, column=14).value = product_info['proportion']
         # Prix minimum dans la liste des prix
-        min_price = min(product.data_list, key=lambda data: data.price)
+        min_data = min(product.data_list, key=lambda data: data.price)
 
         # Écrire les prix pour chaque site
         for id, data in enumerate(product.data_list, start=0):
@@ -196,7 +196,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                     price_cell.value = hyperlink
                     price_cell.font = Font(underline="single", color="0563C1")
 
-                if data.price == min_price:
+                if data.price == min_data.price:
                     price_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
                 else:
                     price_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
