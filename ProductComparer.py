@@ -295,19 +295,19 @@ class ProductComparer:
             if self.product_list[list_len - i].data_list[self.lafourcheId].url == self.data_list[
                 self.lafourcheId].url:
                 list_id.append(self.lafourcheId)
-            elif self.product_list[list_len - i].data_list[self.biocoopChampollionId].url == self.data_list[
+            if self.product_list[list_len - i].data_list[self.biocoopChampollionId].url == self.data_list[
                 self.biocoopChampollionId].url:
                 list_id.append(self.biocoopChampollionId)
-            elif self.product_list[list_len - i].data_list[self.biocoopFontaineId].url == self.data_list[
+            if self.product_list[list_len - i].data_list[self.biocoopFontaineId].url == self.data_list[
                 self.biocoopFontaineId].url:
                 list_id.append(self.biocoopFontaineId)
-            elif self.product_list[list_len - i].data_list[self.satorizId].url == self.data_list[
+            if self.product_list[list_len - i].data_list[self.satorizId].url == self.data_list[
                 self.satorizId].url:
                 list_id.append(self.satorizId)
-            elif self.product_list[list_len - i].data_list[self.greenWeezId].url == self.data_list[
+            if self.product_list[list_len - i].data_list[self.greenWeezId].url == self.data_list[
                 self.greenWeezId].url:
                 list_id.append(self.greenWeezId)
-            elif self.product_list[list_len - i].data_list[self.elefanId].url == self.data_list[
+            if self.product_list[list_len - i].data_list[self.elefanId].url == self.data_list[
                 self.elefanId].url:
                 list_id.append(self.elefanId)
             if len(list_id) > 0:
