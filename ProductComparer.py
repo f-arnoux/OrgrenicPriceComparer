@@ -65,6 +65,7 @@ class SiteInformation:
             except:
                 self.qtt = 1
         self.price = 888888
+        self.isDouble = False
 
     def get_qtt_from_ean(self, ean):
         response = requests.get(off_search_api + str(ean))
@@ -112,6 +113,7 @@ class ProductComparer:
             if to_do_list[id]:
                 if previousProduct is not None and previousProduct[1].count(id) > 0:
                     self.data_list[id].price = previousProduct[0].data_list[id].price
+                    self.data_list[id].isDouble = True
                 else:
                     self._get_product_price(id)
 
@@ -214,15 +216,14 @@ class ProductComparer:
         if self.data_list[self.elefanId].url:
             # Filtre le produit dont la désignation correspond exactement à 'SAVON LAVANDE'
             produits_filtrés = [produit for produit in self.all_elefan_data_list if
-                                produit["designation"] == self.data_list[self.elefanId].url]
+                                produit["designation"] == self.data_list[self.elefanId].url and
+                                produit["status"] == 'ACTIF']
 
             # Vérifie si le produit a été trouvé et affiche les informations
             if produits_filtrés:
                 produit = produits_filtrés[0]
                 price = round(produit.get("prix_vente") / self.data_list[self.elefanId].qtt, 2)
-                #self.data_list[self.elefanId].get_qtt_from_ean(produit["code"])
-                if produit.get("status") != 'ACTIF':
-                    print('Le produit ' + produit["designation"] + ' est ' + produit["status"])
+                self.data_list[self.elefanId].get_qtt_from_ean(produit["code"])
             else:
                 print(f"Aucun produit trouvé avec la désignation '{self.data_list[self.elefanId].url}'")
                 price = 888888

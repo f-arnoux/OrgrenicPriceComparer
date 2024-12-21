@@ -14,12 +14,13 @@ from ProductComparer import ProductComparer
 metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%25C3%25A9signation='
 metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
-compareLafourche = True
+compareLafourche = False
 compareBiocoopChampollion = False
 compareBiocoopFontaine = False
 compareSatoriz = False
-compareGreenweez = True
+compareGreenweez = False
 compareElefan = True
+siteNameList = ["LaFourche", "Biocoop Champollion", "Biocoop Fontaine", "Satoriz", "GreenWeez", "Elefan"]
 to_do_list = [compareLafourche, compareBiocoopChampollion, compareBiocoopFontaine,
               compareSatoriz, compareGreenweez, compareElefan]
 
@@ -123,6 +124,7 @@ category_sub_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_t
 
 # Initialisation des totaux par site
 total_list = [0,0,0,0,0,0]
+total_nb_list = [0,0,0,0,0,0]
 
 #recuperation des données de l'Elefan
 response = requests.get('https://produits.lelefan.org/api/articles')
@@ -180,13 +182,15 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         # Écrire les prix pour chaque site
         for id, data in enumerate(product.data_list, start=0):
             if to_do_list[id]:
+                if not data.isDouble and data.price != 888888:
+                    total_nb_list[id] = total_nb_list[id]  + 1
                 total_list[id] += data.price * product_info['proportion']
                 col = id + 1  # Commencer à partir de la première colonne (colonne 1)
                 price_cell = mois_annee_sheet.cell(row=current_row, column=2*col)
                 price_cell.value = data.price
 
                 site_url = None
-                if col == 6:  # Elefan
+                if col == 6 and len(data.url) > 0:  # Elefan
                     site_url = metabase_elefan_start + product_info['elefan_code'] + metabase_elefan_end
                 else:
                     site_url = data.url
@@ -227,7 +231,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                         reference_price = extract_price_from_hyperlink(
                             reference_sheet.cell(row=row_index, column=10).value)
                         reference_column = 11  # Colonne pour l'évolution GreenWeez
-                        if data.price == 888888:
+                        if data.price == 888888 and False: #desactive ce code
                             all_sheet = reference_workbook.sheetnames
                             index = 2
                             while (index < len(all_sheet) - 1 and new_price == 888888):
@@ -270,9 +274,11 @@ mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($N5:$N
 mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*H5:H' + str(current_row) + ')'
 mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*J5:J' + str(current_row) + ')'
 
+for id, data in enumerate(total_nb_list, start=0):
+    print(siteNameList[id] + " : " + str(data))
 
 # Sauvegarder le classeur Excel
-reference_workbook.save('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
+reference_workbook.save(os.getcwd() + '\\comparaison_prix.xlsx')
 
 # Ouvrir le fichier Excel après sa génération
-os.startfile('C:\\Users\\Lenovo\\Documents\\comparaison_prix.xlsx')
+os.startfile(os.getcwd() + '\\comparaison_prix.xlsx')
