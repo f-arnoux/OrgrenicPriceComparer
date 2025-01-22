@@ -6,25 +6,26 @@ from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 import csv
 import os
+import json
 import requests
 from tqdm import tqdm
 from datetime import datetime
-from ProductComparer import ProductComparer
+from ProductComparer import Product
 
 metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%25C3%25A9signation='
 metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
+test = True
 compareLafourche = False
 compareBiocoopChampollion = False
 compareBiocoopFontaine = False
 compareSatoriz = False
 compareGreenweez = False
-compareElefan = True
-siteNameList = ["LaFourche", "Biocoop Champollion", "Biocoop Fontaine", "Satoriz", "GreenWeez", "Elefan"]
+compareElefan = False
+compareLeclerc = True
+siteNameList = ["LaFourche", "Biocoop Champollion", "Biocoop Fontaine", "Satoriz", "GreenWeez", "Elefan", "Leclerc"]
 to_do_list = [compareLafourche, compareBiocoopChampollion, compareBiocoopFontaine,
-              compareSatoriz, compareGreenweez, compareElefan]
-
-
+              compareSatoriz, compareGreenweez, compareElefan,compareLeclerc]
 
 def extract_price_from_hyperlink(cell_value):
     # Extraire le prix de l'hyperlien
@@ -50,7 +51,7 @@ def search_product_line(reference_sheet, product_name):
 def set_row_fill(row_index, color_fill):
     # Recherche du nom de produit dans la première colonne de la feuille de référence
     col_index = 1
-    while col_index < 14:
+    while col_index < 16:
         cell = mois_annee_sheet.cell(row=row_index, column=col_index)
         cell.fill = color_fill
         col_index += 1
@@ -58,7 +59,10 @@ def set_row_fill(row_index, color_fill):
 
 # Liste des produits à partir du fichier CSV
 products_info = []
-with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
+productPath = os.getcwd() + '\\liste produits.csv'
+if test:
+    productPath = os.getcwd() + '\\liste produits_test.csv'
+with open(productPath, 'r') as csv_file:
     csv_reader = csv.DictReader(csv_file, delimiter=';')
     for row in csv_reader:
         products_info.append({
@@ -69,6 +73,7 @@ with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
             'name': row['Produit'],
             'lafourche_site': row['Site La Fourche'],
             'lafourche_qtt': row['Quantité La Fourche'],
+            'lafourche_ean': row['Code Barre La Fourche'],
             'biocoop_champollion_site': row['Site Biocoop Champollion'],
             'biocoop_champollion_qtt': row['Quantité Biocoop Champollion'],
             'biocoop_fontaine_site': row['Site Biocoop Fontaine'],
@@ -79,7 +84,9 @@ with open(os.getcwd() + '\\liste produits.csv', 'r') as csv_file:
             'greenweez_qtt': row['Quantité GreenWeez'],
             'elefan_code': row['Code Elefan'],
             'elefan_qtt': row['Quantité Elefan'],
-            'proportion': float(row['Proportion']) if row['Proportion'] else 0
+            'leclerc_site': row['Site Leclerc'],
+            'leclerc_qtt': row['Quantité Leclerc'],
+            'proportion': float(row['Proportion'].replace(',','.')) if row['Proportion'] else 0
         })
 
 # Trier les produits selon les trois niveaux de catégories
@@ -113,6 +120,8 @@ mois_annee_sheet.cell(row=1, column=10).value = 'GreenWeez'
 mois_annee_sheet.cell(row=1, column=11).value = 'Évolution GreenWeez'
 mois_annee_sheet.cell(row=1, column=12).value = 'Elefan'
 mois_annee_sheet.cell(row=1, column=13).value = 'Évolution Elefan'
+mois_annee_sheet.cell(row=1, column=14).value = 'Leclerc'
+mois_annee_sheet.cell(row=1, column=15).value = 'Évolution Leclerc'
 
 
 # Variables pour le formatage
@@ -123,8 +132,7 @@ category_main_fill = PatternFill(start_color="B7C9E2", end_color="B7C9E2", fill_
 category_sub_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")  # Couleur de fond pour les sous-catégories
 
 # Initialisation des totaux par site
-total_list = [0,0,0,0,0,0]
-total_nb_list = [0,0,0,0,0,0]
+total_nb_list = [0,0,0,0,0,0,0]
 
 #recuperation des données de l'Elefan
 response = requests.get('https://produits.lelefan.org/api/articles')
@@ -163,7 +171,7 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             current_row += 1
 
         # Obtenir les prix pour chaque produit
-        product = ProductComparer(
+        product = Product(
                 product_info=product_info,
                 product_list=product_list,
                 elefan_data=all_elefan_product_data,
@@ -174,8 +182,8 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
         mois_annee_sheet.cell(row=current_row, column=1).value = product.product_name
 
         product_list.append(product)
-        if product_info['proportion'] != 0:
-            mois_annee_sheet.cell(row=current_row, column=14).value = product_info['proportion']
+        if product_info['proportion'] != 0 and not product.hasNullPrice:
+            mois_annee_sheet.cell(row=current_row, column=16).value = product_info['proportion']
         # Prix minimum dans la liste des prix
         min_data = min(product.data_list, key=lambda data: data.price)
 
@@ -184,7 +192,6 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
             if to_do_list[id]:
                 if not data.isDouble and data.price != 888888:
                     total_nb_list[id] = total_nb_list[id]  + 1
-                total_list[id] += data.price * product_info['proportion']
                 col = id + 1  # Commencer à partir de la première colonne (colonne 1)
                 price_cell = mois_annee_sheet.cell(row=current_row, column=2*col)
                 price_cell.value = data.price
@@ -241,6 +248,14 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
                                 new_price = extract_price_from_hyperlink(
                                 previous_sheet.cell(row=row_index, column=10).value)
                                 index = index + 1
+                    elif col == 6:  # Prix Elefan
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=12).value)
+                        reference_column = 13  # Colonne pour l'évolution Elefan
+                    elif col == 7:  # Prix Leclerc
+                        reference_price = extract_price_from_hyperlink(
+                            reference_sheet.cell(row=row_index, column=14).value)
+                        reference_column = 15  # Colonne pour l'évolution Leclerc
 
                 if reference_price is not None:
                     price_change = ((data.price - reference_price) / reference_price) * 100
@@ -268,11 +283,13 @@ with tqdm(sorted_products_info, desc="Traitement des produits", dynamic_ncols=Tr
 current_row += 1
 # Afficher les résultats à la fin du tableau
 mois_annee_sheet.cell(row=current_row + 1, column=1).value = 'Prix du Panier'
-mois_annee_sheet.cell(row=current_row + 1, column=2).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*B5:B' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=4).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*D5:D' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*F5:F' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*H5:H' + str(current_row) + ')'
-mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($N5:$N' + str(current_row) + '*J5:J' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=2).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*B5:B' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=4).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*D5:D' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=6).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*F5:F' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=8).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*H5:H' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=10).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*J5:J' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=12).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*L5:L' + str(current_row) + ')'
+mois_annee_sheet.cell(row=current_row + 1, column=14).value = '=SUMPRODUCT($P5:$P' + str(current_row) + '*N5:N' + str(current_row) + ')'
 
 for id, data in enumerate(total_nb_list, start=0):
     print(siteNameList[id] + " : " + str(data))

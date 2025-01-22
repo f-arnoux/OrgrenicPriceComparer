@@ -1,5 +1,6 @@
 import csv
 import os
+import glob
 
 from bs4 import BeautifulSoup
 
@@ -15,9 +16,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image
 import time
+import readLeclerc
 
 doScreenCapture = False
 colectSKU = False
+getElefanQtt = False
 lafourche_tag = 'jsx-2550952359 unit-price'
 lafourche_tag2 = 'jsx-774668517 unit-price'
 biocoop_tag = 'weight-price'
@@ -26,13 +29,16 @@ satoriz_tag = 'rqp'
 #greenweez_tag = 'gds-text ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB --bold --xs'
 #greenweez_int_tag = 'gds-title gds-current-price__whole --font-body --md'
 #greenweez_cents_tag = 'gds-title gds-current-price__decimal --font-body --sm'
+#greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
 greenweez_tag = 'leading-[initial] ProductDetailsPrice_gwz-offer-details-price__quantity__SfSbB font-bold font-body text-xs'
 #greenweez_int_tag = 'gds-title CurrentPrice_gwz-current-price__whole__KP5oj --font-body --xl'
 #greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-4xl'
-greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-5xl'
+#greenweez_int_tag = 'leading-[initial] CurrentPrice_gwz-current-price__whole__KP5oj font-extrabold font-body text-5xl'
+greenweez_int_tag = 'leading-none text-5xl'
 #greenweez_cents_tag = 'gds-title CurrentPrice_gwz-current-price__decimal__lHh0v --font-body --md'
 #greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-2xl'
-greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-4xl'
+#greenweez_cents_tag = 'leading-[initial] CurrentPrice_gwz-current-price__decimal__lHh0v font-extrabold font-body text-4xl'
+greenweez_cents_tag = 'leading-none text-4xl'
 
 
 # Configurer les options du navigateur Chrome
@@ -50,8 +56,34 @@ chrome_options.add_argument('--disable-extensions')
 chromedriver_path = "C:\\Users\\Lenovo\\PycharmProjects\\chromedriver-win64\\chromedriver.exe"
 off_search_api = 'https://world.openfoodfacts.org/api/v2/search?code='
 
+def find_latest_file(directory, extension):
+    """
+    Trouve le fichier .aspx le plus récent dans un répertoire.
+
+    Args:
+        directory (str): Chemin du répertoire à explorer.
+
+    Returns:
+        str: Chemin du fichier .aspx le plus récent, ou None s'il n'y en a pas.
+    """
+    try:
+        # Rechercher tous les fichiers .aspx dans le répertoire
+        files = glob.glob(os.path.join(directory, "*." + extension))
+
+        if not files:
+            print("Aucun fichier ." + extension + " trouvé dans le répertoire.")
+            return None
+
+        # Trouver le fichier le plus récent
+        latest_file = max(files, key=os.path.getmtime)
+        return latest_file
+
+    except Exception as e:
+        print(f"Erreur lors de la recherche des fichiers : {e}")
+        return None
+
 class SiteInformation:
-    def __init__(self, url, qtt):
+    def __init__(self, url, qtt, ean =None):
         self.url = url
         self.isUnitary = False
         if qtt == 'V':
@@ -66,6 +98,7 @@ class SiteInformation:
                 self.qtt = 1
         self.price = 888888
         self.isDouble = False
+        self.ean = ean
 
     def get_qtt_from_ean(self, ean):
         response = requests.get(off_search_api + str(ean))
@@ -77,7 +110,7 @@ class SiteInformation:
         except:
             print('Pas de qtt pour ' + self.url)
 
-class ProductComparer:
+class Product:
     biocoop_fontaine_base_url = "https://www.biocoop.fr/magasin-biocoop_fontaine/"
     biocoop_champollion_base_url = "https://www.biocoop.fr/magasin-biocoop_champollion/"
     biocoop_base_url = "https://www.biocoop.fr/"
@@ -87,6 +120,15 @@ class ProductComparer:
     satorizId = 3
     greenWeezId = 4
     elefanId = 5
+    leclercId = 6
+    pathList = os.getcwd() + '\\Listes\\'
+
+    # Charger le fichier JSON
+    with open(find_latest_file(pathList, "json"), "r", encoding="utf-8") as f:
+        data = json.load(f)
+    lafourche_data_list = data["hits"]
+
+    leclerc_data_list = readLeclerc.get_product_list(find_latest_file(pathList, "aspx"))
 
     def __init__(self, product_info, product_list, elefan_data, to_do_list=None):
         if product_info['type'] == 'Prix bas':
@@ -96,8 +138,10 @@ class ProductComparer:
         self.product_list = product_list
         self.all_elefan_data_list = elefan_data
         self.data_list = []
+        self.hasNullPrice = False
+        self.tooMuchNullPrice = False
 
-        self.data_list.append(SiteInformation(product_info['lafourche_site'], product_info['lafourche_qtt']))
+        self.data_list.append(SiteInformation(product_info['lafourche_site'], product_info['lafourche_qtt'], product_info['lafourche_ean']))
         self.data_list.append(SiteInformation(
             product_info['biocoop_champollion_site'].replace(self.biocoop_base_url, self.biocoop_champollion_base_url)
             , product_info['biocoop_champollion_qtt']))
@@ -107,8 +151,10 @@ class ProductComparer:
         self.data_list.append(SiteInformation(product_info['satoriz_site'], product_info['satoriz_qtt']))
         self.data_list.append(SiteInformation(product_info['greenweez_site'], product_info['greenweez_qtt']))
         self.data_list.append(SiteInformation(product_info['elefan_code'], product_info['elefan_qtt']))
+        self.data_list.append(SiteInformation(product_info['leclerc_site'], product_info['leclerc_qtt']))
 
         previousProduct = self._find_url_in_list()
+        countNullPrice = 0
         for id, product in enumerate(self.data_list, start = 0):
             if to_do_list[id]:
                 if previousProduct is not None and previousProduct[1].count(id) > 0:
@@ -116,6 +162,12 @@ class ProductComparer:
                     self.data_list[id].isDouble = True
                 else:
                     self._get_product_price(id)
+                if product.price == 888888:
+                    countNullPrice = countNullPrice + 1
+                    self.hasNullPrice = True
+        if countNullPrice > 4:
+            self.tooMuchNullPrice = True
+
 
     def _get_product_price(self, id):
         if id == self.lafourcheId:
@@ -128,6 +180,8 @@ class ProductComparer:
             self.data_list[id].price = self._get_price_from_greenweez()
         elif id == self.elefanId:
             self.data_list[id].price = self._get_prices_from_elefan()
+        elif id == self.leclercId:
+            self.data_list[id].price = self._get_prices_from_leclerc()
 
     def _get_price_from_site(self, site_id, tag, unit_tag=None):
         if site_id:
@@ -155,24 +209,31 @@ class ProductComparer:
 
     def _get_price_from_lafourche(self):
         if self.data_list[self.lafourcheId].url:
-            try:
-                response = requests.get(self.data_list[self.lafourcheId].url)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                text_element = soup.find('script', id='__NEXT_DATA__')
-                if text_element:
-                    text = text_element.text.strip()
-                    price = json.loads(text)['props']['pageProps']['product']['meta']['finance']['unit_price']
-                    if colectSKU:
-                        sku = json.loads(text)['props']['pageProps']['product']['sku']
+            produits_filtrés = [produit for produit in self.lafourche_data_list if
+                                produit["barcode"] == self.data_list[self.lafourcheId].ean]
+            if produits_filtrés:
+                produit = produits_filtrés[0]
+                price = produit['meta']['finance']['unit_price']
+            else:
+                try:
+                    response = requests.get(self.data_list[self.lafourcheId].url)
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    text_element = soup.find('script', id='__NEXT_DATA__')
+                    if text_element:
+                        text = text_element.text.strip()
+                        price = json.loads(text)['props']['pageProps']['product']['meta']['finance']['unit_price']
                         barcode = json.loads(text)['props']['pageProps']['product']['barcode']
-                        name = json.loads(text)['props']['pageProps']['product']['handle']
-                        self._write_data_in_csv(os.getcwd() + '\\lafouche_data.csv', name, barcode, sku)
-                else:
+                        print("EAN - " + barcode + " : " + self.data_list[self.lafourcheId].url)
+                        if colectSKU:
+                            sku = json.loads(text)['props']['pageProps']['product']['sku']
+                            name = json.loads(text)['props']['pageProps']['product']['handle']
+                            self._write_data_in_csv(os.getcwd() + '\\lafouche_data.csv', name, barcode, sku)
+                    else:
+                        price = 888888
+                except KeyError:
+                    print("URL : " + self.data_list[self.lafourcheId].url)
+                    print(self.product_name)
                     price = 888888
-            except KeyError:
-                print("URL : " + self.data_list[self.lafourcheId].url)
-                print(self.product_name)
-                price = 888888
         else:
             price = 888888
         return price
@@ -195,17 +256,17 @@ class ProductComparer:
 
             # Utiliser BeautifulSoup pour extraire les informations nécessaires
             soup = BeautifulSoup(page_source, 'html.parser')
-            if self.data_list[self.greenWeezId].isUnitary:
-                int_price_element = soup.find(class_=greenweez_int_tag)
-                cent_price_element = soup.find(class_=greenweez_cents_tag)
-                if int_price_element and cent_price_element:
-                     text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip())
-                     price = round(float(text_price)/self.data_list[self.greenWeezId].qtt,2)
-                else:
-                    price = 888888
+            #if self.data_list[self.greenWeezId].isUnitary:
+            int_price_element = soup.find(class_=greenweez_int_tag)
+            cent_price_element = soup.find(class_=greenweez_cents_tag)
+            if int_price_element and cent_price_element:
+                 text_price = re.sub(r'[^\d.,]', '', int_price_element.text.strip()) + "." + re.sub(r'[^\d.,]', '', cent_price_element.text.strip().replace(",",""))
+                 price = round(float(text_price)/self.data_list[self.greenWeezId].qtt,2)
             else:
-                price_element = soup.find(class_=greenweez_tag)
-                price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
+                price = 888888
+            #else:
+            #    price_element = soup.find(class_=greenweez_tag)
+            #    price = float(re.sub(r'[^\d.,]', '', price_element.text.strip().replace(',', '.'))) if price_element else 888888
 
 
         else:
@@ -223,12 +284,23 @@ class ProductComparer:
             if produits_filtrés:
                 produit = produits_filtrés[0]
                 price = round(produit.get("prix_vente") / self.data_list[self.elefanId].qtt, 2)
-                self.data_list[self.elefanId].get_qtt_from_ean(produit["code"])
+                if getElefanQtt:
+                    self.data_list[self.elefanId].get_qtt_from_ean(produit["code"])
             else:
                 print(f"Aucun produit trouvé avec la désignation '{self.data_list[self.elefanId].url}'")
                 price = 888888
         else:
             price = 888888
+        return price
+
+    def _get_prices_from_leclerc(self):
+        price = 888888
+        if self.data_list[self.leclercId].url:
+            produits_filtrés = [produit for produit in self.leclerc_data_list if
+                                produit["url"] == self.data_list[self.leclercId].url]
+            if produits_filtrés:
+                produit = produits_filtrés[0]
+                price = float(produit['unitPrice'])
         return price
 
     def _write_data_in_csv(self, path, name, barcode, sku):
@@ -240,10 +312,10 @@ class ProductComparer:
 
             # Si le fichier n'existe pas encore, écrire les en-têtes
             if not file_exists:
-                writer.writerow(["Name", "Barcode", "SKU"])
+                writer.writerow(["Name", "Barcode", "SKU", "URL"])
 
             # Écrire les données dans une nouvelle ligne
-            writer.writerow([name, barcode, sku])
+            writer.writerow([name, barcode, sku, self.data_list[self.lafourcheId].url])
 
     def _capture_screenshot_section(self, url, save_path, left, top, width, height):
         # Configurer le service pour le driver
