@@ -2,6 +2,41 @@ import re
 import json
 
 
+def extract_json_block(content, start_index):
+    """
+    Fonction pour extraire un bloc JSON complet en analysant rigoureusement les crochets ouvrants et fermants.
+    Elle s'assure qu'on prend bien tout un bloc JSON sans manquer de fermeture ou ouvrir des crochets incorrectement.
+    """
+    depth = 0  # Nombre de crochets ou accolades ouverts
+    json_block = ""
+    for i in range(start_index, len(content)):
+        char = content[i]
+
+        if char == '[':
+            # Un crochet ou une accolade ouvrant, on l'ajoute et on augmente la profondeur
+            depth += 1
+            if depth > 0:
+                json_block += char
+        elif char == ']':
+            # Un crochet ou une accolade fermant, on diminue la profondeur
+            depth -= 1
+            if depth > 0:
+                json_block += char
+            elif depth == 0:
+                # Le bloc JSON est terminé ici
+                json_block += char
+                break
+        else:
+            # Ajouter tous les autres caractères au bloc JSON
+            if depth > 0:
+                json_block += char
+
+    # Vérification que la profondeur est revenue à zéro, sinon le bloc n'est pas complet
+    if depth != 0:
+        raise ValueError("Erreur : La structure JSON est incomplète ou mal formée.")
+
+    return json_block
+
 
 # Fonction pour extraire les données recherchées
 def extract_targeted_data(file_path):
@@ -10,7 +45,7 @@ def extract_targeted_data(file_path):
         content = file.read()
 
     # Rechercher toutes les occurrences de Utilitaires.widget.initOptions
-    script_pattern = re.compile(r"Utilitaires\.widget\.initOptions\('([^']+)',(\{.*?\})\);", re.DOTALL)
+    script_pattern = re.compile(r"Utilitaires\.widget\.initOptions\('([^']+)',\s*(\{.*?)(?=\);|\Z)", re.DOTALL)
     script_matches = script_pattern.findall(content)
 
     if not script_matches:
@@ -36,8 +71,35 @@ def extract_targeted_data(file_path):
     if not target_json:
         return f"Aucun bloc JSON contenant l'identifiant cible '{target_identifier}' trouvé."
 
-    # Charger le JSON correspondant
+    start_index = 0
+    # Recherche d'un bloc contenant l'identifiant cible
+    while True:
+        # Recherche de l'identifiant dans le contenu
+        start_index = target_json.find("lstElements", start_index)
+        if start_index < 0:
+            break  # Si plus de correspondances, on arrête
+
+        # Extraire la portion de contenu après l'identifiant
+        end_index = target_json.find("objStickers", start_index)
+
+        if start_index < 0 or end_index < 0:
+            raise ValueError("Erreur : Structure incorrecte du script.")
+
+        # Extraire le JSON brut contenu dans cette portion
+        json_data_raw = target_json[start_index:end_index].strip()
+
+        try:
+            # Extraire le bloc JSON complet en vérifiant les ouvertures/fermetures
+            target_json = extract_json_block(json_data_raw, 0)
+            break  # On s'arrête dès qu'on a trouvé un bloc valide
+        except ValueError:
+            start_index = end_index + 2  # Si on échoue, on passe à la prochaine occurrence
+
+    if not target_json:
+        return f"Aucun bloc JSON trouvé avec l'identifiant cible '{target_identifier}'."
+
     try:
+        # Charger le JSON validé
         parsed_json = json.loads(target_json)
     except json.JSONDecodeError as e:
         return f"Erreur lors du chargement du JSON : {e}"
@@ -46,7 +108,6 @@ def extract_targeted_data(file_path):
 
 def extract_products(json_data):
     products = []
-
     def parse_elements(elements):
         for element in elements:
             obj_element = element.get("objElement", {})
@@ -56,7 +117,7 @@ def extract_products(json_data):
                     "name": obj_element.get("sLibelleLigne1"),
                     "price": obj_element.get("sPrixUnitaire"),
                     "unitPrice" : re.sub(r'[^\d.,]', '',
-                                         obj_element.get("sPrixParUniteDeMesure").replace(',', '.')),
+                                         obj_element.get("sPrixParUniteDeMesure").replace(',', '.')) if obj_element.get("sPrixParUniteDeMesure") else None,
                     "url": obj_element.get("sUrlPageProduit")
                 })
             # Vérifier les enfants et continuer à explorer
@@ -65,9 +126,8 @@ def extract_products(json_data):
                 parse_elements(lst_enfants)
 
     # Lancer l'exploration des éléments
-    if "objContenu" in json_data:
-        lst_elements = json_data["objContenu"].get("lstElements", [])
-        parse_elements(lst_elements)
+    for category in json_data:
+        parse_elements(category["lstEnfants"])
 
     # Afficher les produits extraits
     for product in products:
@@ -81,5 +141,5 @@ def get_product_list(file_path):
     products_list = extract_products(data)
     return products_list
 
-#get_product_list("C:\\Users\\Lenovo\\Downloads\\detail-liste-42056440.aspx")
+get_product_list("C:\\Users\\Lenovo\\Documents\\OrgrenicPriceComparer\\Listes\\detail-liste-42056440.aspx")
 

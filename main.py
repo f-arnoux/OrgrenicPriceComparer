@@ -15,13 +15,13 @@ from ProductComparer import Product
 metabase_elefan_start = 'https://metabase.lelefan.org/public/dashboard/53c41f3f-5644-466e-935e-897e7725f6bc?rayon=&d%25C3%25A9signation='
 metabase_elefan_end = '&fournisseur=&date_d%25C3%25A9but=&date_fin='
 
-test = True
-compareLafourche = False
-compareBiocoopChampollion = False
-compareBiocoopFontaine = False
-compareSatoriz = False
-compareGreenweez = False
-compareElefan = False
+test = False
+compareLafourche = True
+compareBiocoopChampollion = True
+compareBiocoopFontaine = True
+compareSatoriz = True
+compareGreenweez = True
+compareElefan = True
 compareLeclerc = True
 siteNameList = ["LaFourche", "Biocoop Champollion", "Biocoop Fontaine", "Satoriz", "GreenWeez", "Elefan", "Leclerc"]
 to_do_list = [compareLafourche, compareBiocoopChampollion, compareBiocoopFontaine,
@@ -31,9 +31,16 @@ def extract_price_from_hyperlink(cell_value):
     # Extraire le prix de l'hyperlien
     price = None
     if isinstance(cell_value, str) and cell_value.startswith('=HYPERLINK("'):
-        end_pos = cell_value.rfind('"')  # Trouver la position du dernier guillemet dans la formule
-        start_pos = cell_value.rfind('"', 0, end_pos - 1) + 1  # Trouver la position du guillemet précédent
-        price = float(cell_value[start_pos:end_pos])
+        start_pos = cell_value.rfind(';') + 1
+        if start_pos == 0:
+            start_pos = cell_value.rfind(',') + 1
+        end_pos = cell_value.rfind(')')
+        try:
+            price = float(cell_value[start_pos:end_pos])
+        except ValueError:
+            quote_end_pos = cell_value.rfind('"')  # Trouver la position du dernier guillemet dans la formule
+            quote_start_pos = cell_value.rfind('"', 0, quote_end_pos - 1) + 1  # Trouver la position du guillemet précédent
+            price = float(cell_value[quote_start_pos:quote_end_pos])
     return price
 
 def search_product_line(reference_sheet, product_name):
@@ -96,9 +103,9 @@ sorted_products_info = sorted(products_info, key=lambda x: (x['Catégorie princi
 current_date = datetime.now()
 month_year = current_date.strftime('%B %Y')
 
-# Charger la feuille "Reference 2023" pour obtenir les prix de référence
+# Charger la feuille "Reference 2025" pour obtenir les prix de référence
 reference_workbook = openpyxl.load_workbook(os.getcwd() + '\\comparaison_prix.xlsx')
-reference_sheet = reference_workbook['Reference 2024']
+reference_sheet = reference_workbook['Reference 2025']
 
 # Ajouter une nouvelle feuille "Mois année" si elle n'existe pas
 if month_year not in reference_workbook.sheetnames:

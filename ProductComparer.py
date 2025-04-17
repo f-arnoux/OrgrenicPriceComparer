@@ -126,7 +126,7 @@ class Product:
     # Charger le fichier JSON
     with open(find_latest_file(pathList, "json"), "r", encoding="utf-8") as f:
         data = json.load(f)
-    lafourche_data_list = data["hits"]
+    lafourche_data_list = data["results"][0]["hits"]
 
     leclerc_data_list = readLeclerc.get_product_list(find_latest_file(pathList, "aspx"))
 
@@ -162,7 +162,7 @@ class Product:
                     self.data_list[id].isDouble = True
                 else:
                     self._get_product_price(id)
-                if product.price == 888888:
+                if product.price == 888888 and id != self.leclercId:
                     countNullPrice = countNullPrice + 1
                     self.hasNullPrice = True
         if countNullPrice > 4:
@@ -298,7 +298,7 @@ class Product:
         if self.data_list[self.leclercId].url:
             produits_filtrés = [produit for produit in self.leclerc_data_list if
                                 produit["url"] == self.data_list[self.leclercId].url]
-            if produits_filtrés:
+            if produits_filtrés and produits_filtrés[0]['unitPrice']:
                 produit = produits_filtrés[0]
                 price = float(produit['unitPrice'])
         return price
